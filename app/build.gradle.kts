@@ -43,6 +43,12 @@ android {
 dependencies {
 
 
+    implementation("com.google.android.flexbox:flexbox:3.0.0")
+
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+
+    implementation("com.google.code.gson:gson:2.10.1")
 
     implementation("com.google.android.gms:play-services-ads:23.6.0")
     implementation("androidx.activity:activity-compose")
@@ -66,6 +72,8 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.activity:activity-ktx:1.10.0")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
+    implementation("com.google.firebase:firebase-crashlytics-buildtools:3.0.3")
+
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation(platform("androidx.compose:compose-bom:2025.02.00"))

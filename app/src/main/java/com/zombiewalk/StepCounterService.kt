@@ -15,6 +15,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.compose.ui.input.key.type
 import androidx.core.app.NotificationCompat
+import com.zombiewalk.MainActivity2.DailyStepsChangeListener
 import com.zombiewalk.databinding.ActivityMain2Binding
 import java.time.LocalDate
 
@@ -30,12 +31,19 @@ class StepCounterService : Service(), SensorEventListener {
     private var dailySteps = 0
     private var lastResetTime: LocalDate = LocalDate.now()
     private lateinit var sharedPreferences: SharedPreferences
+    private var totalStepsAtReboot = 0
+    private var lastSensorValue = 0f
+
+    var followerCount1 = 0
+
 
     companion object {
-         const val PREFS_NAME = "StepCounterPrefs"
-         const val PREF_PREVIOUS_TOTAL_STEPS = "previousTotalSteps"
-         const val PREF_DAILY_STEPS = "dailySteps"
+        const val PREFS_NAME = "StepCounterPrefs"
+        const val PREF_PREVIOUS_TOTAL_STEPS = "previousTotalSteps"
+        const val PREF_DAILY_STEPS = "dailySteps"
         const val PREF_LAST_RESET_TIME = "lastResetTime"
+        const val PREF_TOTAL_STEPS_AT_REBOOT = "totalStepsAtReboot"
+        const val PREF_LAST_SENSOR_VALUE = "lastSensorValue"
     }
 
 
@@ -68,9 +76,38 @@ class StepCounterService : Service(), SensorEventListener {
         return null
     }
 
+    private val dailyStepsChangeListener = object : DailyStepsChangeListener {
+        override fun onDailyStepsChanged(dailySteps: Int): Boolean {
+            // Handle the change in daily steps here
+            if (dailySteps % 5 == 0) {
+                var roll = (1..2).random()
+                if (roll == 1) {
+                    //var followerC = sharedPreferences.getInt("followerCount", followerCount1)
+                    followerCount1++
+                    sharedPreferences.edit().putInt("followerCount", followerCount1).apply()
+                }
+            }
+            return true // Return true to indicate the change was accepted
+        }
+    }
+
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
-            totalSteps = event.values[0]
+            val sensorValue = event.values[0]
+
+            //detect reboot
+            val rebooted = sensorValue < lastSensorValue
+            if(rebooted){
+                totalStepsAtReboot = dailySteps
+                //calculate daily steps
+                dailySteps = sensorValue.toInt() + totalStepsAtReboot
+            }
+            else {
+                dailySteps +=(sensorValue - lastSensorValue).toInt()
+            }
+
+            lastSensorValue = sensorValue
+
             val currentSteps = totalSteps.toInt() - previousTotalSteps.toInt()
             // Do something with the step count (e.g., update UI, save to database)
 
@@ -82,6 +119,24 @@ class StepCounterService : Service(), SensorEventListener {
 
             println("Steps: $currentSteps    |   Steps today: $dailySteps")
 
+            dailyStepsChangeListener.onDailyStepsChanged(dailySteps)
+
+    /*        var followerC = sharedPreferences.getInt("followerCount", 0)
+           // binding.inAppSteps.text = "In App Steps: $dailySteps"
+            //loadItems()
+            //the number of steps to trigger a follower
+            if (dailySteps %5 == 0) {
+                var roll = (1..2).random()
+                if (roll == 1) {
+                    followerC++
+                    sharedPreferences.edit().putInt("followerCount", followerC).apply()
+                    //loadOneZombie()
+                   // binding.followers.text = "You have $followers followers"
+
+                }
+            }*/
+
+
 
         }
     }
@@ -92,6 +147,8 @@ class StepCounterService : Service(), SensorEventListener {
     private fun saveData() {
 
         with(sharedPreferences.edit()) {
+            putInt(PREF_TOTAL_STEPS_AT_REBOOT, totalStepsAtReboot)
+            putFloat(PREF_LAST_SENSOR_VALUE, lastSensorValue)
             putFloat(PREF_PREVIOUS_TOTAL_STEPS, previousTotalSteps)
             putInt(PREF_DAILY_STEPS, dailySteps)
             putString(PREF_LAST_RESET_TIME, lastResetTime.toString())
@@ -102,6 +159,8 @@ class StepCounterService : Service(), SensorEventListener {
 
     private fun loadData() {
 
+        totalStepsAtReboot = sharedPreferences.getInt(PREF_TOTAL_STEPS_AT_REBOOT, 0)
+        lastSensorValue = sharedPreferences.getFloat(PREF_LAST_SENSOR_VALUE, 0f)
         previousTotalSteps = sharedPreferences.getFloat(PREF_PREVIOUS_TOTAL_STEPS, 0f)
         dailySteps = sharedPreferences.getInt(PREF_DAILY_STEPS, 0)
         lastResetTime = LocalDate.parse(sharedPreferences.getString(PREF_LAST_RESET_TIME, LocalDate.now().toString()))
@@ -112,6 +171,7 @@ class StepCounterService : Service(), SensorEventListener {
         val today = LocalDate.now()
         if (today != lastResetTime){
             dailySteps = 0
+            totalStepsAtReboot = 0
             lastResetTime = today
             saveData()
         }
