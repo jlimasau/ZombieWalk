@@ -436,6 +436,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 }
               
             }
+            saveZombies()
+            loadItems()
 
         }
         return super.onTouchEvent(event)
