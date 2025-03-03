@@ -35,6 +35,7 @@ class StepCounterService : Service(), SensorEventListener {
     private var lastSensorValue = 0f
 
     var followerCount1 = 0
+   private var ifFirstRun = true
 
 
     companion object {
@@ -56,6 +57,7 @@ class StepCounterService : Service(), SensorEventListener {
         stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
         sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+       //isFirstRun =
         loadData()
 
         startForegroundService()
@@ -79,9 +81,12 @@ class StepCounterService : Service(), SensorEventListener {
     private val dailyStepsChangeListener = object : DailyStepsChangeListener {
         override fun onDailyStepsChanged(dailySteps: Int): Boolean {
             // Handle the change in daily steps here
-            if (dailySteps % 5 == 0) {
+            followerCount1 = sharedPreferences.getInt("followerCount", followerCount1)
+
+            if (dailySteps % 4 == 0) {
                 var roll = (1..2).random()
                 if (roll == 1) {
+
                     //var followerC = sharedPreferences.getInt("followerCount", followerCount1)
                     followerCount1++
                     sharedPreferences.edit().putInt("followerCount", followerCount1).apply()

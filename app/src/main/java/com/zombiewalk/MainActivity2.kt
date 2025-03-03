@@ -16,6 +16,8 @@ import android.hardware.SensorManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -23,12 +25,10 @@ import android.widget.Button
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatButton
-import androidx.compose.foundation.background
-import androidx.compose.ui.input.key.type
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.view.children
-import androidx.core.view.contains
+
+
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -55,12 +55,15 @@ import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
 import com.zombiewalk.databinding.ActivityMain2Binding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import kotlin.random.Random
+
+
 
 class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
 
@@ -88,10 +91,20 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     //add zombie animation when tapped
     //zombies added over time
 
-//bug: on phone restart step count was -37222
+//bug: on phone restart step count was -37222 FIXED
+    //animation that goes from tap to zombie that was removed coordinates representing the arrow
 
 
+    //items usage should save across sessions
 
+    //test for followers appearing at 0 steps, could have been from previous day, in app steps not zero, and items preloaded
+
+    //a chancethat a zombie drops an item after each removal
+
+
+    //fix one zombie and all items on start
+
+    //items not loading on screen when added on start up
 
     private lateinit var binding: ActivityMain2Binding
 
@@ -160,11 +173,25 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     }
 
     private var experience = 0
-    var timesPressed = 0
     var timesBatUsed = 0
     var timesMolotovUsed = 0
     var timesTomahawkUsed = 0
     var timesCrossbowUsed = 0
+    var timesMacheteUsed = 0
+
+    var droppedItem1 = "noItem"
+
+    var testerMode = false
+
+    private val targetedZombies = mutableSetOf<ImageView>()
+
+    private var isDroppingItem = false
+
+    private var itemDropped = false
+    //private val handler = Handler(Looper.getMainLooper())
+    var crossbowInUse = false
+    var itemRarity = 30
+
 
 
     interface DailyStepsChangeListener {
@@ -173,66 +200,120 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     private val dailyStepsChangeListener = object : DailyStepsChangeListener {
         override fun onDailyStepsChanged(dailySteps: Int): Boolean {
-           /* if(dailySteps < 0){
-
-            }*/
             binding.inAppSteps.text = "In App Steps: $dailySteps"
             loadItems()
             loadZombies()
-            //the number of steps to trigger a follower
-      /*      if (dailySteps %5 == 0) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    followers++
-                    loadOneZombie()
-                    binding.followers.text = "You have $followers followers"
 
-                }
-            }*/
             //the number of steps to trigger items
-            if (dailySteps % 3 == 0 && !items.contains("Bat")) {
+            //rarity
+            if (dailySteps % 20 == 0 && !items.contains("bat")) {
                 var roll = (1..2).random()
                 if (roll == 1) {
-                    items.add("Bat")
+                    items.add("bat")
                     saveItems()
-                    loadItems()
+
+                }
+            }
+            if (dailySteps % 45 == 0 && !items.contains("tomahawk")) {
+                var roll = (1..2).random()
+                if (roll == 1) {
+                    items.add("tomahawk")
+                    saveItems()
+
+                }
+            }
+            if (dailySteps % 90 == 0 && !items.contains("molotov")) {
+                var roll = (1..2).random()
+                if (roll == 1) {
+                    items.add("molotov")
+                    saveItems()
+
+                }
+            }
+            if (dailySteps % 60 == 0 && !items.contains("crossbow")) {
+                var roll = (1..2).random()
+                if (roll == 1) {
+                    items.add("crossbow")
+                    saveItems()
+
+                }
+            }
+
+            if (dailySteps % 30 == 0 && !items.contains("machete")) {
+                var roll = (1..2).random()
+                if (roll == 1) {
+                    items.add("machete")
+                    saveItems()
+
+                }
+            }
+            if (dailySteps % 50 == 0) {
+                val adRequest = AdRequest.Builder().build()
+
+                InterstitialAd.load(this@MainActivity2,"ca-app-pub-3940256099942544/1033173712", adRequest, object : InterstitialAdLoadCallback() {
+                    override fun onAdFailedToLoad(adError: LoadAdError) {
+                        Log.d(TAG, adError.toString())
+                        Log.d(TAG, "Ad failed to load: ${adError.message}") // Print the error message
+                        Log.d(TAG, "Ad failed to load: ${adError.code}") // Print the error code
+                        mInterstitialAd = null
+                    }
+
+                    override fun onAdLoaded(interstitialAd: InterstitialAd) {
+                        Log.d(TAG, "Ad was loaded.")
+                        mInterstitialAd = interstitialAd
+                        mInterstitialAd?.show(this@MainActivity2)
+                    }
+                })
+
+                mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
+                    override fun onAdClicked() {
+                        // Called when a click is recorded for an ad.
+                        Log.d(TAG, "Ad was clicked.")
+                    }
+
+                    override fun onAdDismissedFullScreenContent() {
+                        // Called when ad is dismissed.
+                        Log.d(TAG, "Ad dismissed fullscreen content.")
+                        mInterstitialAd = null
+                    }
+
+                    override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                        // Called when ad fails to show.
+                        Log.e(TAG, "Ad failed to show: ${adError.message}") // Print the error message
+                        Log.e(TAG, "Ad failed to show: ${adError.code}") // Print the error code
+                        Log.e(TAG, "Ad failed to show fullscreen content.")
+                        mInterstitialAd = null
+                    }
+
+                    override fun onAdImpression() {
+                        // Called when an impression is recorded for an ad.
+                        Log.d(TAG, "Ad recorded an impression.")
+                    }
+
+                    override fun onAdShowedFullScreenContent() {
+                        // Called when ad is shown.
+                        Log.d(TAG, "Ad showed fullscreen content.")
+                    }
+                }
+
+                if (mInterstitialAd != null) {
+                    mInterstitialAd?.show(this@MainActivity2)
+                } else {
+                    Log.d("TAG", "The interstitial ad wasn't ready yet.")
+                }
+            } //loads ad every x steps
 
 
-                }
+
+
+
+
+            runOnUiThread{
+                loadItems()
             }
-            if (dailySteps % 7 == 0 && !items.contains("Tomahawk")) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    items.add("Tomahawk")
-                    saveItems()
-                    loadItems()
-                }
-            }
-            if (dailySteps % 25 == 0 && !items.contains("Molotov")) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    items.add("Molotov")
-                    saveItems()
-                    loadItems()
-                }
-            }
-            if (dailySteps % 15 == 0 && !items.contains("Crossbow")) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    items.add("Crossbow")
-                    saveItems()
-                    loadItems()
-                }
-            }
-      /*      if (dailySteps % 30 == 0 && !items.contains("Crossbow")) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    items.add("Crossbow")
-                    loadItems()
-                }
-            }*/
-            loadItems()
-            saveItems()
+
+
+
             return true // Return true to indicate the change was accepted
         }
     }
@@ -249,59 +330,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             ) { initializationStatus: InitializationStatus? -> }
         }
             .start()
-        val adRequest = AdRequest.Builder().build()
 
-        InterstitialAd.load(this,"ca-app-pub-3940256099942544/1033173712", adRequest, object : InterstitialAdLoadCallback() {
-            override fun onAdFailedToLoad(adError: LoadAdError) {
-                Log.d(TAG, adError.toString())
-                Log.d(TAG, "Ad failed to load: ${adError.message}") // Print the error message
-                Log.d(TAG, "Ad failed to load: ${adError.code}") // Print the error code
-                mInterstitialAd = null
-            }
-
-            override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                Log.d(TAG, "Ad was loaded.")
-                mInterstitialAd = interstitialAd
-                mInterstitialAd?.show(this@MainActivity2)
-            }
-        })
-
-        mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
-            override fun onAdClicked() {
-                // Called when a click is recorded for an ad.
-                Log.d(TAG, "Ad was clicked.")
-            }
-
-            override fun onAdDismissedFullScreenContent() {
-                // Called when ad is dismissed.
-                Log.d(TAG, "Ad dismissed fullscreen content.")
-                mInterstitialAd = null
-            }
-
-            override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                // Called when ad fails to show.
-                Log.e(TAG, "Ad failed to show: ${adError.message}") // Print the error message
-                Log.e(TAG, "Ad failed to show: ${adError.code}") // Print the error code
-                Log.e(TAG, "Ad failed to show fullscreen content.")
-                mInterstitialAd = null
-            }
-
-            override fun onAdImpression() {
-                // Called when an impression is recorded for an ad.
-                Log.d(TAG, "Ad recorded an impression.")
-            }
-
-            override fun onAdShowedFullScreenContent() {
-                // Called when ad is shown.
-                Log.d(TAG, "Ad showed fullscreen content.")
-            }
-        }
-
-        if (mInterstitialAd != null) {
-            mInterstitialAd?.show(this)
-        } else {
-            Log.d("TAG", "The interstitial ad wasn't ready yet.")
-        }
 
         binding = ActivityMain2Binding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -333,11 +362,19 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         binding.inAppSteps.text = "In App Steps : $dailySteps"
         binding.followers.text = "You have $followers followers"
 
+        if( testerMode == true) {
+            for (i in 1 .. 10) {
+                followers++
+                loadOneZombie()
+            }
+        }
+
         loadItems()
         loadExperience()
         loadZombies()
 
 }
+
     private fun saveZombies(){
         sharedPreferences.edit().putInt("followerCount", followers).apply()
         //type of zombie count to load other zombies
@@ -361,13 +398,47 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             val xtap = event.x
             val ytap = event.y
             when (currentItem ){
-                "Molotov" -> {
+                "molotov" -> {
                     val radius = 500F
                     blastRadius(xtap, ytap, radius)
                     timesMolotovUsed++
 
+                    val molotov = ImageView(this@MainActivity2)
+                   // molotov.setImageResource(R.drawable.molotov)
+
+                    molotov.background = null
+                    molotov.visibility = View.INVISIBLE
+
+
+                    binding.parentLayout.addView(molotov)
+                    molotov.layoutParams.width = radius.toInt()
+                    molotov.layoutParams.height = radius.toInt()
+
+
+                    // Use post() to get the correct width and height
+                    molotov.post {
+                        // Now we know the width and height
+                        molotov.x = xtap - molotov.width/2
+                        molotov.y = ytap - molotov.height/2
+                        molotov.visibility = View.VISIBLE
+
+
+
+                    }
+                    molotov.bringToFront()
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        loadGifIntoImageView(molotov, R.drawable.molotov, 500, 500) // Example: Resize to 200x200 pixels
+                    }
+
+                    // Use coroutines to remove the view after 1 second
+                    lifecycleScope.launch {
+                        delay(1000) // Wait for 1 second
+                        binding.parentLayout.removeView(molotov)
+                    }
+
+
                     if(timesMolotovUsed > 10){
-                        items.remove("Molotov")
+                        items.remove("molotov")
 
 
                         saveItems()
@@ -382,11 +453,37 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     //currentItem = null
                     //sharePreferences.edit().putString("CI", currentItem).commit()
                 }
-                "Bat" -> {
+                "bat" -> {
                     handleZombieTap(xtap, ytap)
                     timesBatUsed++
+
+                    val Bat = ImageView(this@MainActivity2)
+                    Bat.setImageResource(R.drawable.bat)
+
+                    Bat.background = null
+                    Bat.visibility = View.INVISIBLE
+
+
+                    binding.parentLayout.addView(Bat)
+                    Bat.layoutParams.width = 270
+                    Bat.layoutParams.height = 270
+
+                    Bat.bringToFront()
+                    // Use post() to get the correct width and height
+                    Bat.post {
+                        // Now we know the width and height
+                        Bat.x = xtap - Bat.width+50
+                        Bat.y = ytap - Bat.height+125
+                        Bat.visibility = View.VISIBLE
+
+                        Bat.postDelayed({
+                            swipeAnimation(Bat)
+                        }, 100)
+                    }
+
+
                     if(timesBatUsed > 20){
-                        items.remove("Bat")
+                        items.remove("bat")
 
                         saveItems()
                         loadItems()
@@ -399,15 +496,42 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     //currentItem = null
                     //sharePreferences.edit().putString("CI", currentItem).commit()
                 }
-                "Tomahawk" -> {
+                "tomahawk" -> {
                     handleZombieTap(xtap, ytap)
+
+
                     timesTomahawkUsed++
+
+                    val tomahawk = ImageView(this@MainActivity2)
+                    tomahawk.setImageResource(R.drawable.tomahawk)
+
+                    tomahawk.background = null
+                    tomahawk.visibility = View.INVISIBLE
+
+
+                    binding.parentLayout.addView(tomahawk)
+                    tomahawk.layoutParams.width = 250
+                    tomahawk.layoutParams.height = 250
+
+                    tomahawk.bringToFront()
+                    // Use post() to get the correct width and height
+                    tomahawk.post {
+                        // Now we know the width and height
+                        tomahawk.x = xtap - tomahawk.width+50
+                        tomahawk.y = ytap - tomahawk.height+125
+                        tomahawk.visibility = View.VISIBLE
+
+                        tomahawk.postDelayed({
+                            swipeAnimation(tomahawk)
+                        }, 100)
+                    }
+
                     if(timesTomahawkUsed > 50){
-                        items.remove("Tomahawk")
+                        items.remove("tomahawk")
 
                         saveItems()
                         loadItems()
-                        timesBatUsed = 0
+                        timesTomahawkUsed = 0
                         currentItem = null
                         sharedPreferences.edit().putString("CI", currentItem).commit()
                     }
@@ -417,22 +541,117 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     //sharePreferences.edit().putString("CI", currentItem).commit()
                 }
                 
-                "Crossbow" -> {
-                    removeClosestZombie(xtap, ytap)
+                "crossbow" -> {
+
+
+                    if( crossbowInUse){
+                        return super.onTouchEvent(event)
+                    }
+
+                    crossbowInUse = true
+                    //in the future change this to aim
+                    var closestZombie1 = closestZombie(xtap, ytap)
                     timesCrossbowUsed++
+
+                    var closestZombieX = closestZombie1?.x
+                    var closestZombieY = closestZombie1?.y
+
+                    val crossbow = ImageView(this@MainActivity2)
+                    crossbow.setImageResource(R.drawable.crossbow)
+
+                    crossbow.background = null
+                    crossbow.visibility = View.INVISIBLE
+
+
+                    binding.parentLayout.addView(crossbow)
+                    crossbow.layoutParams.width = 250
+                    crossbow.layoutParams.height = 250
+
+                    crossbow.bringToFront()
+                    // Use post() to get the correct width and height
+                    crossbow.post {
+                        // Now we know the width and height
+                        crossbow.x = xtap - crossbow.width/2
+                        crossbow.y = ytap - crossbow.height/2
+                        crossbow.visibility = View.VISIBLE
+
+                        crossbow.postDelayed({
+                            angleAnimation(crossbow, closestZombieX, closestZombieY, closestZombie1)
+                        }, 100)
+
+                       /* lifecycleScope.launch {
+                            delay(600) // Wait for 1 second
+                            binding.parentLayout.removeView(crossbow)
+
+                        }*/
+
+                    }
+
                     if(timesCrossbowUsed > 20){
-                        items.remove("Crossbow")
+                        items.remove("crossbow")
 
                         saveItems()
                         loadItems()
-                        timesBatUsed = 0
+                        //if item runs out{
+                        timesCrossbowUsed = 0
                         currentItem = null
                         sharedPreferences.edit().putString("CI", currentItem).commit()
                     }
-                    //add logic for multiple items or multiple uses
-                    //if item runs out{
-                    //currentItem = null
-                    //sharePreferences.edit().putString("CI", currentItem).commit()
+                   // handler.postDelayed({
+                        crossbowInUse = false
+                    //}, 500)
+                }
+
+                "machete" -> {
+                    handleZombieTap(xtap, ytap)
+                    timesMacheteUsed++
+
+                    val machete = ImageView(this@MainActivity2)
+                    machete.setImageResource(R.drawable.machete)
+
+                    machete.background = null
+                    machete.visibility = View.INVISIBLE
+
+
+                    binding.parentLayout.addView(machete)
+                    machete.layoutParams.width = 200
+                    machete.layoutParams.height = 200
+
+                    machete.bringToFront()
+                    // Use post() to get the correct width and height
+                    machete.post {
+                        // Now we know the width and height
+                        machete.x = xtap - machete.width+50
+                        machete.y = ytap - machete.height+100
+                        machete.visibility = View.VISIBLE
+
+                        machete.postDelayed({
+                            swipeAnimation(machete)
+                        }, 100)
+                    }
+
+
+
+
+
+                    /* //use this if it's a gif
+                      lifecycleScope.launch(Dispatchers.IO) {
+                             loadGifIntoImageView(machete, R.drawable.zombie, 200, 200) // Example: Resize to 200x200 pixels
+                         }*/
+
+                    if(timesMacheteUsed > 15){
+
+
+
+                        items.remove("machete")
+
+                        saveItems()
+                        loadItems()
+                        //if item runs out{
+                        timesMacheteUsed = 0
+                        currentItem = null
+                        sharedPreferences.edit().putString("CI", currentItem).commit()
+                    }
                 }
               
             }
@@ -443,10 +662,13 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         return super.onTouchEvent(event)
     }
 
+
+
+
     private fun saveItems() {
         val gson = Gson()
         val json = gson.toJson(items)
-        sharedPreferences.edit().putString("items", json).apply()
+        sharedPreferences.edit().putString("items", json).commit()
     }
 
 
@@ -460,16 +682,24 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 val zombieId = returnId(zombie2)
                 var hp = sharedPreferences.getInt(zombieId.toString(), 3)
 
-                if(currentItem == "Bat"){
+                if(currentItem == "bat"){
                     hp--
                     sharedPreferences.edit().putInt(zombieId.toString(), hp).commit()
 
                 }
-                else if(currentItem == "Tomahawk"){
+                else if(currentItem == "tomahawk"){
                     hp-=2
                     sharedPreferences.edit().putInt(zombieId.toString(), hp).commit()
 
                 }
+                else if(currentItem == "machete"){
+                    hp-=2
+                    sharedPreferences.edit().putInt(zombieId.toString(), hp).commit()
+
+                }
+
+
+
                 if (hp <= 0){
                     sharedPreferences.edit().putInt(zombieId.toString(), 3).commit()
 
@@ -477,6 +707,18 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     followers--
                     binding.followers.text = "You have $followers followers"
                     binding.parentLayout.removeView(zombie2) // Remove from zombieLayout
+
+
+
+
+                    if(!itemDropped){
+                        val roll = (1..itemRarity).random() // Generate roll here
+                        droppedItem(xtap,ytap, roll) // Pass roll to droppedItem
+                        itemDropped = true
+                    }
+
+
+
                    // zombies.remove(zombie2)
                     experience++
                     saveExperience()
@@ -489,7 +731,98 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             }
         }
 
+       // handler.postDelayed({
+            itemDropped = false
+       // }, 500)
+
+
     }
+
+    private fun droppedItem(xtap: Float, ytap: Float, roll: Int) {
+
+
+
+
+
+       // var roll = (1..20).random()
+
+        if (roll == 1) {
+            droppedItem1 = "molotov"
+        }
+        if (roll == 2) {
+            droppedItem1 = "tomahawk"
+        }
+        if (roll == 3) {
+            droppedItem1 = "crossbow"
+        }
+        if (roll == 4) {
+            droppedItem1 = "machete"
+        }
+        if (roll == 5) {
+            droppedItem1 = "bat"
+        }
+
+
+        if (droppedItem1 == "noItem") {
+
+        } else {
+            val droppedItem = ImageView(this@MainActivity2)
+            droppedItem.setImageResource(resources.getIdentifier(droppedItem1, "drawable", packageName)
+            )
+
+            droppedItem.background = null
+            droppedItem.visibility = View.INVISIBLE
+
+
+            binding.parentLayout.addView(droppedItem)
+            droppedItem.layoutParams.width = 100
+            droppedItem.layoutParams.height = 100
+
+            droppedItem.bringToFront()
+            // Use post() to get the correct width and height
+            droppedItem.post {
+                // Now we know the width and height
+                droppedItem.x = xtap - droppedItem.width / 2
+                droppedItem.y = ytap - droppedItem.height / 2
+                droppedItem.visibility = View.VISIBLE
+
+                droppedItem.setOnClickListener(View.OnClickListener {
+                    droppedItem.setOnClickListener(null)
+                    loadItems()
+                    if(droppedItem1 == "noItem"){
+
+                    }
+                    else if(!items.contains(droppedItem1)){
+
+
+                        items.add(droppedItem1!!)
+                        saveItems()
+                        loadItems()
+
+                    }
+                    loadItems()
+                    saveItems()
+                    binding.parentLayout.removeView(droppedItem)
+                    droppedItem1 = "noItem"
+
+                })
+
+
+
+                lifecycleScope.launch {
+                    delay(5000)
+                    binding.parentLayout.removeView(droppedItem)
+                }
+            }
+        }
+        // Reset the flag after a delay (e.g., 500 milliseconds)
+
+
+
+    }
+
+
+
     private fun isTapped(zombie: ImageView, xtap: Float, ytap: Float): Boolean {
         val zombieRect = Rect()
         zombie.getGlobalVisibleRect(zombieRect)
@@ -497,32 +830,41 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
     }
-    private fun removeClosestZombie(xtap: Float, ytap: Float) {
+    private fun closestZombie(xtap: Float, ytap: Float): ImageView? {
 
         var closestZombie: ImageView? = null
         var closestDistance = Float.MAX_VALUE
+        var closestZombieX = 0F
+        var closestZombieY = 0F
 
-        for (zombie in zombies){
-            val middleOfZombieX = zombie.x + zombie.width/2
-            val middleOfZombieY = zombie.y + zombie.height/2
-            val distance = Math.sqrt(Math.pow((middleOfZombieX - xtap).toDouble(), 2.0) + Math.pow((middleOfZombieY - ytap).toDouble(), 2.0)).toFloat()
-            if(distance < closestDistance){
+        for (zombie in zombies) {
+            if(targetedZombies.contains(zombie)) {
+                continue
+            }
+            val middleOfZombieX = zombie.x + zombie.width / 2
+            val middleOfZombieY = zombie.y + zombie.height / 2
+            val distance = Math.sqrt(
+                Math.pow(
+                    (middleOfZombieX - xtap).toDouble(),
+                    2.0
+                ) + Math.pow((middleOfZombieY - ytap).toDouble(), 2.0)
+            ).toFloat()
+            if (distance < closestDistance) {
                 closestDistance = distance
                 closestZombie = zombie
+                closestZombieX = middleOfZombieX
+                closestZombieY = middleOfZombieY
             }
         }
-        closestZombie?.let{
-            followers--
-            binding.followers.text = "You have $followers followers"
-            binding.parentLayout.removeView(it) // Remove from zombieLayout
-            zombies.remove(it)
-            experience++
-            saveExperience()
-            saveZombies()
-        }
 
+        closestZombie?.let{ targetedZombies.add(it)}
 
+        return closestZombie
     }
+
+
+
+
 
     private fun blastRadius(xtap: Float, ytap: Float, radius: Float) {
         //use while loop to iterate without supplying the total size of zombies
@@ -604,23 +946,33 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
               }
           }*/
         numberOfButtons = items.size
-        val buttons = arrayOfNulls<Button>(numberOfButtons)
+        runOnUiThread {
+            val buttons = arrayOfNulls<Button>(numberOfButtons)
 
-        for (i in 0 until numberOfButtons) {
-            val button = AppCompatButton(this)
+            for (i in 0 until numberOfButtons) {
+                val button = AppCompatButton(this)
 
-            button.text = items[i]
+                button.text = items[i]
 
-            binding.buttonlayout.addView(button)
+                binding.buttonlayout.addView(button)
 
-            button.setOnClickListener {
-                currentItem = button.text.toString()
-                sharedPreferences.edit().putString("CI", currentItem).commit()
+                button.setOnClickListener {
+                    currentItem = button.text.toString()
+                    sharedPreferences.edit().putString("CI", currentItem).commit()
+                }
+                buttons[i] = button
             }
-            buttons[i] = button
         }
+        lifecycleScope.launch {
+            delay(5000)
+
+
         if (items.isEmpty()) {
             binding.buttonlayout.visibility = View.GONE
+        }
+        else{
+            binding.buttonlayout.visibility = View.VISIBLE
+        }
         }
     }
 
@@ -628,8 +980,14 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     private fun loadOneZombie(){
 
         val zombie = ImageView(this@MainActivity2)
-        zombie.x = binding.mainLayout.width.toFloat()/2
-        zombie.y = -350F
+
+        zombie.post {
+            // Now we know the width and height
+            zombie.x = binding.mainLayout.width.toFloat()/2
+            zombie.y = -350F
+
+        }
+
 
         // Remove any existing background (not really needed for ImageView, but good practice)
         zombie.background = null
@@ -642,6 +1000,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         val editor = sharedPreferences.edit()
         editor.putInt(zombie7.newId.toString(), 3).apply()
 
+        zombie.visibility = View.INVISIBLE
 
 
 
@@ -655,6 +1014,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
             zombie.bringToFront()
         zombie.postDelayed({
+            zombie.visibility = View.VISIBLE
+
             animateZombie(zombie)
         }, 100)
         saveZombies()
@@ -667,7 +1028,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     private fun animateZombie(zombie: ImageView) {
         var width = Random.nextInt(0, binding.parentLayout.width-200)
         var height = Random.nextInt(0+260, binding.parentLayout.height-200)
-        zombie.animate().x(width.toFloat()).y(height.toFloat()).setDuration(4000)
+        zombie.animate().x(width.toFloat()).y(height.toFloat()).setDuration(5000)
             .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     // Animation has finished!
@@ -680,6 +1041,79 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     }
 
+    private fun angleAnimation(
+        item2: ImageView, closestZombieX: Float?, closestZombieY: Float?, closestZombie1: ImageView?) {
+        if(zombies.size == 0){
+            binding.parentLayout.removeView(item2)
+        }
+        else {
+
+            if (closestZombieX == null || closestZombieY == null) {
+                binding.parentLayout.removeView(item2)
+                return
+            }
+
+
+            // Get the crossbow's center coordinates
+            val crossbowX = item2.x + item2.width / 2
+            val crossbowY = item2.y + item2.height / 2
+
+            var calculatedAngle = kotlin.math.atan2(
+                closestZombieY - crossbowY,
+                closestZombieX - crossbowX
+            ) * 180 / Math.PI
+            calculatedAngle += 90f
+
+
+
+            item2.animate().rotation(calculatedAngle.toFloat()).setDuration(400)
+                .setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        // Animation has finished!
+                        Log.d("Animation", "Animation has finished for zombie")
+                        // Perform your action here
+                        // For example, you could start another animation, update the UI, etc.
+                        binding.parentLayout.removeView(item2)
+
+                        followers--
+                        binding.followers.text = "You have $followers followers"
+                        binding.parentLayout.removeView(closestZombie1) // Remove from zombieLayout
+                        zombies.remove(closestZombie1)
+                        if(!itemDropped){
+                            val roll = (1..itemRarity).random() // Generate roll here
+                            droppedItem(closestZombieX, closestZombieY, roll)
+                            itemDropped = true
+                        }
+
+                        experience++
+                        saveExperience()
+                        saveZombies()
+
+                    }
+                })
+
+
+        }
+        itemDropped = false
+    }
+
+    private fun swipeAnimation(item1: ImageView) {
+        //var width = Random.nextInt(0, binding.parentLayout.width-200)
+       // var height = Random.nextInt(0+260, binding.parentLayout.height-200)
+       // machete.animate().x(width.toFloat()).y(height.toFloat()).setDuration(4000)
+        item1.animate().rotation(-90f).setDuration(500)
+        .setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    // Animation has finished!
+                    Log.d("Animation", "Animation has finished for zombie")
+                    // Perform your action here
+                    // For example, you could start another animation, update the UI, etc.
+
+
+                    binding.parentLayout.removeView(item1)
+                }
+            })
+    }
 
     private fun loadGifIntoImageView(imageView: ImageView, gifResId: Int, width: Int, height: Int) {
 
@@ -914,6 +1348,10 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         // Issue operations with healthConnectClient
     }
 
+ /*   override fun onBackPressed() {
+        saveZombies()
+        super.onBackPressed()
+    }*/
 
 
 }
