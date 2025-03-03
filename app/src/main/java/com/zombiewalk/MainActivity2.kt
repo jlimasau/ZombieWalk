@@ -23,8 +23,11 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.ImageView
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatButton
+import androidx.compose.ui.semantics.text
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
@@ -118,18 +121,22 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     val requestPermissionActivityContract =
         PermissionController.createRequestPermissionResultContract()
+    private var healthConnectPermissionsGranted = false
 
-    val requestPermissions =
-        registerForActivityResult(requestPermissionActivityContract) { granted ->
-            if (granted.containsAll(PERMISSIONS)) {
-                // Permissions successfully granted
-                println("Permissions successfully granted")
-
-            } else {
-                // Lack of required permissions
-                println("Lack of required permissions")
+    private var requestPermissions: ActivityResultLauncher<Array<String>> = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        if (result.all { it.value }) {
+            // All permissions granted
+            healthConnectPermissionsGranted = true
+            lifecycleScope.launch {
+                checkPermissionsAndRun()
             }
+        } else {
+            // Permissions denied
+            // Handle accordingly
         }
+    }
 
     private val sensorManager by lazy {
         getSystemService(Context.SENSOR_SERVICE) as SensorManager }
@@ -160,6 +167,9 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             return Zombie(imageView, nextId++)
         }
 
+        private const val PERMISSION_REQUEST_CODE = 100
+        const val PREFS_NAME = "StepCounterPrefs"
+        const val PREF_IS_FIRST_RUN = "isFirstRun"
     }
 
     private var zombies: MutableList<ImageView> = mutableListOf()
@@ -191,6 +201,11 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     //private val handler = Handler(Looper.getMainLooper())
     var crossbowInUse = false
     var itemRarity = 30
+
+    private var isFirstRun = true
+
+
+
 
 
 
@@ -323,6 +338,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main2)
 
+        healthConnectClient = HealthConnectClient.getOrCreate(this)
+
         Thread {
             // Initialize the Google Mobile Ads SDK on a background thread.
             MobileAds.initialize(
@@ -335,7 +352,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         binding = ActivityMain2Binding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        checkAndRequestPermissions()
+
 
         if (sensor == null) {
             binding.inAppSteps.text = "Step counter sensor is not present on this device"
@@ -345,17 +362,24 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             binding.stepsTextView.text =
                 "This Feature is only available on Version Android 14 and up"
         }
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
-            checkHealthConnectStatus(this, providerPackageName)
-            runBlocking {
-                checkPermissionsAndRun()
-            }
-            lifecycleScope.launch {
-                getChangesToken()
-                startListeningForChanges()
-            }
-        }
+
         sharedPreferences = getSharedPreferences(StepCounterService.PREFS_NAME, Context.MODE_PRIVATE)
+        isFirstRun = sharedPreferences.getBoolean(PREF_IS_FIRST_RUN, true)
+
+        requestPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            result ->
+            if(result.all { it.value }){
+             healthConnectPermissionsGranted = true
+             lifecycleScope.launch {
+                 checkPermissionsAndRun()
+             }
+            }else{
+                    binding.stepsTextView.text = "Health Connect permissions denied. Some features may not work."
+                }
+
+        }
+
+        checkAndRequestPermissions()
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
 
         val dailySteps = sharedPreferences.getInt(StepCounterService.PREF_DAILY_STEPS, 0)
@@ -374,6 +398,25 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         loadZombies()
 
 }
+
+    private fun onActivityRecognitionPermissionGranted() {
+        startStepCounterService()
+
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
+            checkHealthConnectStatus(this, providerPackageName)
+            runBlocking {
+                checkPermissionsAndRun()
+            }
+            lifecycleScope.launch {
+                getChangesToken()
+                startListeningForChanges()
+            }
+        }
+    }
+
+
+
+
 
     private fun saveZombies(){
         sharedPreferences.edit().putInt("followerCount", followers).apply()
@@ -1208,11 +1251,11 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 )
             } else {
                 // Permission already granted, start the service
-                startStepCounterService()
+                onActivityRecognitionPermissionGranted()
             }
         } else {
             // No need to request permission for versions lower than Android 10
-            startStepCounterService()
+            onActivityRecognitionPermissionGranted()
         }
     }
 
@@ -1225,7 +1268,9 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         if (requestCode == ACTIVITY_RECOGNITION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission granted, start the service
-                startStepCounterService()
+                onActivityRecognitionPermissionGranted()
+            /*    intent = Intent(this, MainActivity2::class.java)
+                startActivity(intent)*/
             } else {
                 // Permission denied, handle accordingly (e.g., show a message)
             }
@@ -1271,7 +1316,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 }
             }
         } else {
-            requestPermissions.launch(PERMISSIONS)
+            requestPermissions.launch(PERMISSIONS.toTypedArray())
         }
     }
 
