@@ -42,10 +42,15 @@ android {
 
 dependencies {
 
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7") 
+    implementation("androidx.lifecycle:lifecycle-process:2.8.7")
+
+    implementation ("com.google.android.gms:play-services-base:18.5.0") // Or latest version
 
     implementation("com.google.android.flexbox:flexbox:3.0.0")
 
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("androidx.activity:activity:1.10.1")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
     implementation("com.google.code.gson:gson:2.10.1")

@@ -1,7 +1,6 @@
 package com.zombiewalk
 
 
-
 import android.Manifest
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -16,8 +15,6 @@ import android.hardware.SensorManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
@@ -27,7 +24,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatButton
-import androidx.compose.ui.semantics.text
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
@@ -65,7 +61,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import kotlin.random.Random
-
 
 
 class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
@@ -109,9 +104,11 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     //items not loading on screen when added on start up
 
+    //animation for machete and others should finish first before removing zombie
+
     private lateinit var binding: ActivityMain2Binding
 
-   private lateinit var healthConnectClient: HealthConnectClient
+    private lateinit var healthConnectClient: HealthConnectClient
 
     private val providerPackageName = "com.google.android.apps.healthdata"
 
@@ -123,25 +120,28 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         PermissionController.createRequestPermissionResultContract()
     private var healthConnectPermissionsGranted = false
 
-    private var requestPermissions: ActivityResultLauncher<Array<String>> = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        if (result.all { it.value }) {
-            // All permissions granted
-            healthConnectPermissionsGranted = true
-            lifecycleScope.launch {
-                checkPermissionsAndRun()
+    private var requestPermissions: ActivityResultLauncher<Array<String>> =
+        registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { result ->
+            if (result.all { it.value }) {
+                // All permissions granted
+                healthConnectPermissionsGranted = true
+                lifecycleScope.launch {
+                    checkPermissionsAndRun()
+                }
+            } else {
+                // Permissions denied
+                // Handle accordingly
             }
-        } else {
-            // Permissions denied
-            // Handle accordingly
         }
-    }
 
     private val sensorManager by lazy {
-        getSystemService(Context.SENSOR_SERVICE) as SensorManager }
+        getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    }
     private val sensor: Sensor? by lazy {
-        sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) }
+        sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+    }
 
     private val ACTIVITY_RECOGNITION_REQUEST_CODE = 100
 
@@ -161,6 +161,9 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     data class Zombie(val imageView: ImageView, val newId: Int)
     companion object {
+        private val random = Random(System.nanoTime())
+
+
         private var nextId = 1 //static counter for sequential id
 
         fun createZombie(imageView: ImageView): Zombie {
@@ -170,6 +173,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         private const val PERMISSION_REQUEST_CODE = 100
         const val PREFS_NAME = "StepCounterPrefs"
         const val PREF_IS_FIRST_RUN = "isFirstRun"
+        const val PREF_HAS_GRANTED_PERMISSIONS = "hasGrantedPermissions"
+        const val PREF_DAILY_STEPS = "dailySteps"
     }
 
     private var zombies: MutableList<ImageView> = mutableListOf()
@@ -177,6 +182,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     private val zombieMap: MutableMap<ImageView, Zombie> = mutableMapOf()
 
     data class ZombieData(val newId: Int, var hp: Int)
+
     fun returnId(imageView: ImageView): Int? {
         val zombie = zombieMap[imageView]
         return zombie?.newId // Use safe call to handle potential null
@@ -189,7 +195,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     var timesCrossbowUsed = 0
     var timesMacheteUsed = 0
 
-    var droppedItem1 = "noItem"
+
 
     var testerMode = false
 
@@ -198,16 +204,21 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     private var isDroppingItem = false
 
     private var itemDropped = false
+
     //private val handler = Handler(Looper.getMainLooper())
     var crossbowInUse = false
-    var itemRarity = 30
+    var itemRarity = 45
 
     private var isFirstRun = true
 
+    private var isFirstTimeGrantingPermissions = true
+
+    private lateinit var permissionController: PermissionController
+
+    private var permissionsGranted = false
 
 
-
-
+    var roll1 = Random.nextInt(1, itemRarity)
 
     interface DailyStepsChangeListener {
         fun onDailyStepsChanged(dailySteps: Int): Boolean
@@ -216,114 +227,137 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     private val dailyStepsChangeListener = object : DailyStepsChangeListener {
         override fun onDailyStepsChanged(dailySteps: Int): Boolean {
             binding.inAppSteps.text = "In App Steps: $dailySteps"
+
+            with(sharedPreferences.edit()){
+                putInt(PREF_DAILY_STEPS, dailySteps)
+                apply()
+            }
             loadItems()
             loadZombies()
 
-            //the number of steps to trigger items
-            //rarity
-            if (dailySteps % 20 == 0 && !items.contains("bat")) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    items.add("bat")
-                    saveItems()
+           if( dailySteps == 0){
 
-                }
-            }
-            if (dailySteps % 45 == 0 && !items.contains("tomahawk")) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    items.add("tomahawk")
-                    saveItems()
+           }
+            else {
+               //the number of steps to trigger items
+               //rarity
+               if (dailySteps % 20 == 0 && !items.contains("bat")) {
+                   var roll = (1..2).random()
+                   if (roll == 1) {
+                       items.add("bat")
+                       saveItems()
 
-                }
-            }
-            if (dailySteps % 90 == 0 && !items.contains("molotov")) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    items.add("molotov")
-                    saveItems()
+                   }
+               }
+               if (dailySteps % 45 == 0 && !items.contains("tomahawk")) {
+                   var roll = (1..2).random()
+                   if (roll == 1) {
+                       items.add("tomahawk")
+                       saveItems()
 
-                }
-            }
-            if (dailySteps % 60 == 0 && !items.contains("crossbow")) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    items.add("crossbow")
-                    saveItems()
+                   }
+               }
+               if (dailySteps % 90 == 0 && !items.contains("molotov")) {
+                   var roll = (1..2).random()
+                   if (roll == 1) {
+                       items.add("molotov")
+                       saveItems()
 
-                }
-            }
+                   }
+               }
+               if (dailySteps % 60 == 0 && !items.contains("crossbow")) {
+                   var roll = (1..2).random()
+                   if (roll == 1) {
+                       items.add("crossbow")
+                       saveItems()
 
-            if (dailySteps % 30 == 0 && !items.contains("machete")) {
-                var roll = (1..2).random()
-                if (roll == 1) {
-                    items.add("machete")
-                    saveItems()
+                   }
+               }
 
-                }
-            }
-            if (dailySteps % 50 == 0) {
-                val adRequest = AdRequest.Builder().build()
+               if (dailySteps % 30 == 0 && !items.contains("machete")) {
+                   var roll = (1..2).random()
+                   if (roll == 1) {
+                       items.add("machete")
+                       saveItems()
 
-                InterstitialAd.load(this@MainActivity2,"ca-app-pub-3940256099942544/1033173712", adRequest, object : InterstitialAdLoadCallback() {
-                    override fun onAdFailedToLoad(adError: LoadAdError) {
-                        Log.d(TAG, adError.toString())
-                        Log.d(TAG, "Ad failed to load: ${adError.message}") // Print the error message
-                        Log.d(TAG, "Ad failed to load: ${adError.code}") // Print the error code
-                        mInterstitialAd = null
-                    }
+                   }
+               }
+               if (dailySteps % 150 == 0) {
+                   val adRequest = AdRequest.Builder().build()
 
-                    override fun onAdLoaded(interstitialAd: InterstitialAd) {
-                        Log.d(TAG, "Ad was loaded.")
-                        mInterstitialAd = interstitialAd
-                        mInterstitialAd?.show(this@MainActivity2)
-                    }
-                })
+                   InterstitialAd.load(
+                       this@MainActivity2,
+                       "ca-app-pub-3940256099942544/1033173712",
+                       adRequest,
+                       object : InterstitialAdLoadCallback() {
+                           override fun onAdFailedToLoad(adError: LoadAdError) {
+                               Log.d(TAG, adError.toString())
+                               Log.d(
+                                   TAG,
+                                   "Ad failed to load: ${adError.message}"
+                               ) // Print the error message
+                               Log.d(
+                                   TAG,
+                                   "Ad failed to load: ${adError.code}"
+                               ) // Print the error code
+                               mInterstitialAd = null
+                           }
 
-                mInterstitialAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
-                    override fun onAdClicked() {
-                        // Called when a click is recorded for an ad.
-                        Log.d(TAG, "Ad was clicked.")
-                    }
+                           override fun onAdLoaded(interstitialAd: InterstitialAd) {
+                               Log.d(TAG, "Ad was loaded.")
+                               mInterstitialAd = interstitialAd
+                               mInterstitialAd?.show(this@MainActivity2)
+                           }
+                       })
 
-                    override fun onAdDismissedFullScreenContent() {
-                        // Called when ad is dismissed.
-                        Log.d(TAG, "Ad dismissed fullscreen content.")
-                        mInterstitialAd = null
-                    }
+                   mInterstitialAd?.fullScreenContentCallback =
+                       object : FullScreenContentCallback() {
+                           override fun onAdClicked() {
+                               // Called when a click is recorded for an ad.
+                               Log.d(TAG, "Ad was clicked.")
+                           }
 
-                    override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                        // Called when ad fails to show.
-                        Log.e(TAG, "Ad failed to show: ${adError.message}") // Print the error message
-                        Log.e(TAG, "Ad failed to show: ${adError.code}") // Print the error code
-                        Log.e(TAG, "Ad failed to show fullscreen content.")
-                        mInterstitialAd = null
-                    }
+                           override fun onAdDismissedFullScreenContent() {
+                               // Called when ad is dismissed.
+                               Log.d(TAG, "Ad dismissed fullscreen content.")
+                               mInterstitialAd = null
+                           }
 
-                    override fun onAdImpression() {
-                        // Called when an impression is recorded for an ad.
-                        Log.d(TAG, "Ad recorded an impression.")
-                    }
+                           override fun onAdFailedToShowFullScreenContent(adError: AdError) {
+                               // Called when ad fails to show.
+                               Log.e(
+                                   TAG,
+                                   "Ad failed to show: ${adError.message}"
+                               ) // Print the error message
+                               Log.e(
+                                   TAG,
+                                   "Ad failed to show: ${adError.code}"
+                               ) // Print the error code
+                               Log.e(TAG, "Ad failed to show fullscreen content.")
+                               mInterstitialAd = null
+                           }
 
-                    override fun onAdShowedFullScreenContent() {
-                        // Called when ad is shown.
-                        Log.d(TAG, "Ad showed fullscreen content.")
-                    }
-                }
+                           override fun onAdImpression() {
+                               // Called when an impression is recorded for an ad.
+                               Log.d(TAG, "Ad recorded an impression.")
+                           }
 
-                if (mInterstitialAd != null) {
-                    mInterstitialAd?.show(this@MainActivity2)
-                } else {
-                    Log.d("TAG", "The interstitial ad wasn't ready yet.")
-                }
-            } //loads ad every x steps
+                           override fun onAdShowedFullScreenContent() {
+                               // Called when ad is shown.
+                               Log.d(TAG, "Ad showed fullscreen content.")
+                           }
+                       }
 
+                   if (mInterstitialAd != null) {
+                       mInterstitialAd?.show(this@MainActivity2)
+                   } else {
+                       Log.d("TAG", "The interstitial ad wasn't ready yet.")
+                   }
+               } //loads ad every x steps
 
+           }
 
-
-
-
-            runOnUiThread{
+            runOnUiThread {
                 loadItems()
             }
 
@@ -339,6 +373,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         setContentView(R.layout.activity_main2)
 
         healthConnectClient = HealthConnectClient.getOrCreate(this)
+        permissionController = healthConnectClient.permissionController
+
 
         Thread {
             // Initialize the Google Mobile Ads SDK on a background thread.
@@ -363,41 +399,67 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 "This Feature is only available on Version Android 14 and up"
         }
 
-        sharedPreferences = getSharedPreferences(StepCounterService.PREFS_NAME, Context.MODE_PRIVATE)
+        sharedPreferences =
+            getSharedPreferences(StepCounterService.PREFS_NAME, Context.MODE_PRIVATE)
         isFirstRun = sharedPreferences.getBoolean(PREF_IS_FIRST_RUN, true)
+        isFirstTimeGrantingPermissions =
+            sharedPreferences.getBoolean(PREF_HAS_GRANTED_PERMISSIONS, true)
 
-        requestPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            result ->
-            if(result.all { it.value }){
-             healthConnectPermissionsGranted = true
-             lifecycleScope.launch {
-                 checkPermissionsAndRun()
-             }
-            }else{
-                    binding.stepsTextView.text = "Health Connect permissions denied. Some features may not work."
+
+        requestPermissions =
+            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+                if (result.all { it.value }) {
+                    healthConnectPermissionsGranted = true
+                    lifecycleScope.launch {
+                        checkPermissionsAndRun()
+                    }
+                } else {
+                    binding.stepsTextView.text =
+                        "Health Connect permissions denied. Some features may not work."
                 }
 
-        }
-
+            }
+        lifecycleScope.launch(Dispatchers.IO){
         checkAndRequestPermissions()
+        }
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
 
         val dailySteps = sharedPreferences.getInt(StepCounterService.PREF_DAILY_STEPS, 0)
         binding.inAppSteps.text = "In App Steps : $dailySteps"
         binding.followers.text = "You have $followers followers"
 
-        if( testerMode == true) {
-            for (i in 1 .. 10) {
+        if (testerMode == true) {
+            for (i in 1..50) {
                 followers++
                 loadOneZombie()
             }
+        }
+
+        if(testerMode == true){
+            if(!items.contains("tomahawk")){
+            items.add("tomahawk")
+            }
+            if(!items.contains("machete")){
+                items.add("machete")
+            }
+            if(!items.contains("molotov")){
+                items.add("molotov")
+            }
+            if(!items.contains("bat")){
+                items.add("bat")
+            }
+            if(!items.contains("crossbow")){
+                items.add("crossbow")
+            }
+
+            saveItems()
         }
 
         loadItems()
         loadExperience()
         loadZombies()
 
-}
+    }
 
     private fun onActivityRecognitionPermissionGranted() {
         startStepCounterService()
@@ -415,10 +477,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     }
 
 
-
-
-
-    private fun saveZombies(){
+    private fun saveZombies() {
         sharedPreferences.edit().putInt("followerCount", followers).apply()
         //type of zombie count to load other zombies
     }
@@ -427,7 +486,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         followers = sharedPreferences.getInt("followerCount", 0)
         binding.followers.text = "You have $followers followers"
 
-        if(zombies.size < followers){
+        if (zombies.size < followers) {
             for (i in zombies.size until followers) {
                 loadOneZombie()
 
@@ -440,14 +499,14 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         if (event?.action == MotionEvent.ACTION_DOWN) {
             val xtap = event.x
             val ytap = event.y
-            when (currentItem ){
+            when (currentItem) {
                 "molotov" -> {
                     val radius = 500F
                     blastRadius(xtap, ytap, radius)
                     timesMolotovUsed++
 
                     val molotov = ImageView(this@MainActivity2)
-                   // molotov.setImageResource(R.drawable.molotov)
+                    // molotov.setImageResource(R.drawable.molotov)
 
                     molotov.background = null
                     molotov.visibility = View.INVISIBLE
@@ -461,16 +520,20 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     // Use post() to get the correct width and height
                     molotov.post {
                         // Now we know the width and height
-                        molotov.x = xtap - molotov.width/2
-                        molotov.y = ytap - molotov.height/2
+                        molotov.x = xtap - molotov.width / 2
+                        molotov.y = ytap - molotov.height / 2
                         molotov.visibility = View.VISIBLE
-
 
 
                     }
                     molotov.bringToFront()
                     lifecycleScope.launch(Dispatchers.IO) {
-                        loadGifIntoImageView(molotov, R.drawable.molotov, 500, 500) // Example: Resize to 200x200 pixels
+                        loadGifIntoImageView(
+                            molotov,
+                            R.drawable.molotov,
+                            500,
+                            500
+                        ) // Example: Resize to 200x200 pixels
                     }
 
                     // Use coroutines to remove the view after 1 second
@@ -480,7 +543,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     }
 
 
-                    if(timesMolotovUsed > 10){
+                    if (timesMolotovUsed > 10) {
                         items.remove("molotov")
 
 
@@ -496,6 +559,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     //currentItem = null
                     //sharePreferences.edit().putString("CI", currentItem).commit()
                 }
+
                 "bat" -> {
                     handleZombieTap(xtap, ytap)
                     timesBatUsed++
@@ -515,8 +579,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     // Use post() to get the correct width and height
                     Bat.post {
                         // Now we know the width and height
-                        Bat.x = xtap - Bat.width+50
-                        Bat.y = ytap - Bat.height+125
+                        Bat.x = xtap - Bat.width + 50
+                        Bat.y = ytap - Bat.height + 125
                         Bat.visibility = View.VISIBLE
 
                         Bat.postDelayed({
@@ -525,7 +589,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     }
 
 
-                    if(timesBatUsed > 20){
+                    if (timesBatUsed > 20) {
                         items.remove("bat")
 
                         saveItems()
@@ -539,6 +603,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     //currentItem = null
                     //sharePreferences.edit().putString("CI", currentItem).commit()
                 }
+
                 "tomahawk" -> {
                     handleZombieTap(xtap, ytap)
 
@@ -560,8 +625,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     // Use post() to get the correct width and height
                     tomahawk.post {
                         // Now we know the width and height
-                        tomahawk.x = xtap - tomahawk.width+50
-                        tomahawk.y = ytap - tomahawk.height+125
+                        tomahawk.x = xtap - tomahawk.width + 50
+                        tomahawk.y = ytap - tomahawk.height + 125
                         tomahawk.visibility = View.VISIBLE
 
                         tomahawk.postDelayed({
@@ -569,7 +634,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                         }, 100)
                     }
 
-                    if(timesTomahawkUsed > 50){
+                    if (timesTomahawkUsed > 50) {
                         items.remove("tomahawk")
 
                         saveItems()
@@ -583,11 +648,11 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     //currentItem = null
                     //sharePreferences.edit().putString("CI", currentItem).commit()
                 }
-                
+
                 "crossbow" -> {
 
 
-                    if( crossbowInUse){
+                    if (crossbowInUse) {
                         return super.onTouchEvent(event)
                     }
 
@@ -614,23 +679,27 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     // Use post() to get the correct width and height
                     crossbow.post {
                         // Now we know the width and height
-                        crossbow.x = xtap - crossbow.width/2
-                        crossbow.y = ytap - crossbow.height/2
+                        crossbow.x = xtap - crossbow.width / 2
+                        crossbow.y = ytap - crossbow.height / 2
                         crossbow.visibility = View.VISIBLE
 
                         crossbow.postDelayed({
                             angleAnimation(crossbow, closestZombieX, closestZombieY, closestZombie1)
                         }, 100)
 
-                       /* lifecycleScope.launch {
-                            delay(600) // Wait for 1 second
-                            binding.parentLayout.removeView(crossbow)
+                        /* lifecycleScope.launch {
+                             delay(600) // Wait for 1 second
+                             binding.parentLayout.removeView(crossbow)
 
-                        }*/
+                         }*/
 
                     }
 
-                    if(timesCrossbowUsed > 20){
+                    var crossbowUses = 20
+                    if (testerMode == true){
+                        crossbowUses = 100
+                    }
+                    if (timesCrossbowUsed > crossbowUses) {
                         items.remove("crossbow")
 
                         saveItems()
@@ -640,8 +709,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                         currentItem = null
                         sharedPreferences.edit().putString("CI", currentItem).commit()
                     }
-                   // handler.postDelayed({
-                        crossbowInUse = false
+                    // handler.postDelayed({
+                    crossbowInUse = false
                     //}, 500)
                 }
 
@@ -664,8 +733,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     // Use post() to get the correct width and height
                     machete.post {
                         // Now we know the width and height
-                        machete.x = xtap - machete.width+50
-                        machete.y = ytap - machete.height+100
+                        machete.x = xtap - machete.width + 50
+                        machete.y = ytap - machete.height + 100
                         machete.visibility = View.VISIBLE
 
                         machete.postDelayed({
@@ -674,16 +743,12 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     }
 
 
-
-
-
                     /* //use this if it's a gif
                       lifecycleScope.launch(Dispatchers.IO) {
                              loadGifIntoImageView(machete, R.drawable.zombie, 200, 200) // Example: Resize to 200x200 pixels
                          }*/
 
-                    if(timesMacheteUsed > 15){
-
+                    if (timesMacheteUsed > 15) {
 
 
                         items.remove("machete")
@@ -696,7 +761,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                         sharedPreferences.edit().putString("CI", currentItem).commit()
                     }
                 }
-              
+
             }
             saveZombies()
             loadItems()
@@ -704,8 +769,6 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         }
         return super.onTouchEvent(event)
     }
-
-
 
 
     private fun saveItems() {
@@ -718,32 +781,30 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     private fun handleZombieTap(xtap: Float, ytap: Float) {
 
         val iterator = zombies.iterator()
-        while (iterator.hasNext()){
+        while (iterator.hasNext()) {
             val zombie2 = iterator.next()
-            if(isTapped(zombie2, xtap, ytap)){
+            if (isTapped(zombie2, xtap, ytap)) {
                 //val zombieObject = Zombie(zombie2)
                 val zombieId = returnId(zombie2)
                 var hp = sharedPreferences.getInt(zombieId.toString(), 3)
 
-                if(currentItem == "bat"){
+                if (currentItem == "bat") {
                     hp--
                     sharedPreferences.edit().putInt(zombieId.toString(), hp).commit()
 
-                }
-                else if(currentItem == "tomahawk"){
-                    hp-=2
+                } else if (currentItem == "tomahawk") {
+                    hp -= 2
+                    sharedPreferences.edit().putInt(zombieId.toString(), hp).commit()
+
+                } else if (currentItem == "machete") {
+                    hp -= 2
                     sharedPreferences.edit().putInt(zombieId.toString(), hp).commit()
 
                 }
-                else if(currentItem == "machete"){
-                    hp-=2
-                    sharedPreferences.edit().putInt(zombieId.toString(), hp).commit()
-
-                }
 
 
 
-                if (hp <= 0){
+                if (hp <= 0) {
                     sharedPreferences.edit().putInt(zombieId.toString(), 3).commit()
 
                     iterator.remove()
@@ -753,41 +814,37 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
 
-
-                    if(!itemDropped){
-                        val roll = (1..itemRarity).random() // Generate roll here
-                        droppedItem(xtap,ytap, roll) // Pass roll to droppedItem
-                        itemDropped = true
-                    }
+                       // val roll = (1..itemRarity).random() // Generate roll here
+                   roll1 = getRandomNumber()
+                    droppedItem(xtap, ytap, roll1) // Pass roll to droppedItem
+                       // itemDropped = true
 
 
 
-                   // zombies.remove(zombie2)
+                    // zombies.remove(zombie2)
                     experience++
                     saveExperience()
                     saveZombies()
                 }
 
 
-
-
             }
         }
-
-       // handler.postDelayed({
-            itemDropped = false
-       // }, 500)
+/*
+        // handler.postDelayed({
+        itemDropped = false
+        // }, 500)*/
 
 
     }
 
     private fun droppedItem(xtap: Float, ytap: Float, roll: Int) {
-
-
-
-
-
-       // var roll = (1..20).random()
+        var droppedItem1 = "noItem"
+    /*    if(isDroppingItem){
+            return
+        }
+        isDroppingItem = true*/
+        // var roll = (1..20).random()
 
         if (roll == 1) {
             droppedItem1 = "molotov"
@@ -806,64 +863,64 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         }
 
 
-        if (droppedItem1 == "noItem") {
+        if (droppedItem1 != "noItem") {
 
-        } else {
-            val droppedItem = ImageView(this@MainActivity2)
-            droppedItem.setImageResource(resources.getIdentifier(droppedItem1, "drawable", packageName)
-            )
+            createDroppedItem(xtap, ytap, droppedItem1)
 
-            droppedItem.background = null
-            droppedItem.visibility = View.INVISIBLE
-
-
-            binding.parentLayout.addView(droppedItem)
-            droppedItem.layoutParams.width = 100
-            droppedItem.layoutParams.height = 100
-
-            droppedItem.bringToFront()
-            // Use post() to get the correct width and height
-            droppedItem.post {
-                // Now we know the width and height
-                droppedItem.x = xtap - droppedItem.width / 2
-                droppedItem.y = ytap - droppedItem.height / 2
-                droppedItem.visibility = View.VISIBLE
-
-                droppedItem.setOnClickListener(View.OnClickListener {
-                    droppedItem.setOnClickListener(null)
-                    loadItems()
-                    if(droppedItem1 == "noItem"){
-
-                    }
-                    else if(!items.contains(droppedItem1)){
-
-
-                        items.add(droppedItem1!!)
-                        saveItems()
-                        loadItems()
-
-                    }
-                    loadItems()
-                    saveItems()
-                    binding.parentLayout.removeView(droppedItem)
-                    droppedItem1 = "noItem"
-
-                })
-
-
-
-                lifecycleScope.launch {
-                    delay(5000)
-                    binding.parentLayout.removeView(droppedItem)
-                }
-            }
         }
+        return
         // Reset the flag after a delay (e.g., 500 milliseconds)
-
-
+   /*     handler.postDelayed({
+            isDroppingItem = false
+        }, 1000)*/
 
     }
 
+    private fun createDroppedItem(xtap: Float, ytap: Float, droppedItem1: String) {
+        val droppedItem = ImageView(this@MainActivity2)
+        droppedItem.setImageResource(
+            resources.getIdentifier(droppedItem1, "drawable", packageName)
+        )
+        droppedItem.background = null
+        droppedItem.visibility = View.INVISIBLE
+        binding.parentLayout.addView(droppedItem)
+        droppedItem.layoutParams.width = 100
+        droppedItem.layoutParams.height = 100
+
+        droppedItem.bringToFront()
+        // Use post() to get the correct width and height
+        droppedItem.post {
+            // Now we know the width and height
+            droppedItem.x = xtap - droppedItem.width / 2
+            droppedItem.y = ytap - droppedItem.height / 2
+            droppedItem.visibility = View.VISIBLE
+
+            droppedItem.setOnClickListener(View.OnClickListener {
+                droppedItem.setOnClickListener(null)
+                loadItems()
+               if (!items.contains(droppedItem1)) {
+
+
+                    items.add(droppedItem1)
+                    saveItems()
+                    loadItems()
+
+                }
+
+                saveItems()
+                loadItems()
+                binding.parentLayout.removeView(droppedItem)
+
+
+            })
+
+            lifecycleScope.launch {
+                delay(5000)
+                binding.parentLayout.removeView(droppedItem)
+            }
+        }
+
+    }
 
 
     private fun isTapped(zombie: ImageView, xtap: Float, ytap: Float): Boolean {
@@ -873,6 +930,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
     }
+
     private fun closestZombie(xtap: Float, ytap: Float): ImageView? {
 
         var closestZombie: ImageView? = null
@@ -881,7 +939,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         var closestZombieY = 0F
 
         for (zombie in zombies) {
-            if(targetedZombies.contains(zombie)) {
+            if (targetedZombies.contains(zombie)) {
                 continue
             }
             val middleOfZombieX = zombie.x + zombie.width / 2
@@ -900,25 +958,27 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             }
         }
 
-        closestZombie?.let{ targetedZombies.add(it)}
+        closestZombie?.let { targetedZombies.add(it) }
 
         return closestZombie
     }
 
 
-
-
-
     private fun blastRadius(xtap: Float, ytap: Float, radius: Float) {
         //use while loop to iterate without supplying the total size of zombies
         val iterator = zombies.iterator()
-        while (iterator.hasNext()){
+        while (iterator.hasNext()) {
             val zombie1 = iterator.next()
-            val middleOfZombieX = zombie1.x + zombie1.width/2
-            val middleOfZombieY = zombie1.y + zombie1.height/2
-            val distance = Math.sqrt(Math.pow((middleOfZombieX - xtap).toDouble(), 2.0) + Math.pow((middleOfZombieY - ytap).toDouble(), 2.0)).toFloat()
+            val middleOfZombieX = zombie1.x + zombie1.width / 2
+            val middleOfZombieY = zombie1.y + zombie1.height / 2
+            val distance = Math.sqrt(
+                Math.pow(
+                    (middleOfZombieX - xtap).toDouble(),
+                    2.0
+                ) + Math.pow((middleOfZombieY - ytap).toDouble(), 2.0)
+            ).toFloat()
 
-            if(distance < radius){
+            if (distance < radius) {
 
                 iterator.remove()
                 followers--
@@ -954,25 +1014,26 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
         //load items from shared preferences
-   /*     val gson = Gson()
-         val json = sharedPreferences.getString("items", null)
-        val type = object : TypeToken<ArrayList<String>>() {}.type
-         if (json != null) {
-             items = gson.fromJson(json, type) ?: arrayListOf()
-         }*/
+        /*     val gson = Gson()
+              val json = sharedPreferences.getString("items", null)
+             val type = object : TypeToken<ArrayList<String>>() {}.type
+              if (json != null) {
+                  items = gson.fromJson(json, type) ?: arrayListOf()
+              }*/
         val gson = Gson()
         val json = sharedPreferences.getString("items", null)
         val type = object : TypeToken<ArrayList<String>>() {}.type
-        items = try {  //if the json is not a valid representation of an ArrayList<String>, then the fromJson method will throw an exception
-            if (json != null) {
-                gson.fromJson(json, type) ?: arrayListOf()
-            } else {
-                arrayListOf()
+        items =
+            try {  //if the json is not a valid representation of an ArrayList<String>, then the fromJson method will throw an exception
+                if (json != null) {
+                    gson.fromJson(json, type) ?: arrayListOf()
+                } else {
+                    arrayListOf()
+                }
+            } catch (e: JsonSyntaxException) {
+                Log.e("loadItems", "Error parsing JSON: ${e.message}")
+                arrayListOf() // Return an empty list in case of error
             }
-        } catch (e: JsonSyntaxException) {
-            Log.e("loadItems", "Error parsing JSON: ${e.message}")
-            arrayListOf() // Return an empty list in case of error
-        }
 
 
 
@@ -1010,23 +1071,22 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             delay(5000)
 
 
-        if (items.isEmpty()) {
-            binding.buttonlayout.visibility = View.GONE
-        }
-        else{
-            binding.buttonlayout.visibility = View.VISIBLE
-        }
+            if (items.isEmpty()) {
+                binding.buttonlayout.visibility = View.GONE
+            } else {
+                binding.buttonlayout.visibility = View.VISIBLE
+            }
         }
     }
 
 
-    private fun loadOneZombie(){
+    private fun loadOneZombie() {
 
         val zombie = ImageView(this@MainActivity2)
 
         zombie.post {
             // Now we know the width and height
-            zombie.x = binding.mainLayout.width.toFloat()/2
+            zombie.x = binding.mainLayout.width.toFloat() / 2
             zombie.y = -350F
 
         }
@@ -1036,10 +1096,10 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         zombie.background = null
         val zombie7 = createZombie(zombie)
 
-       // zombieMap[zombie7.imageView] = zombie7
-       // val zombieId = zombie7.newId
+        // zombieMap[zombie7.imageView] = zombie7
+        // val zombieId = zombie7.newId
         //give zombie health 3
-       // val zombieId
+        // val zombieId
         val editor = sharedPreferences.edit()
         editor.putInt(zombie7.newId.toString(), 3).apply()
 
@@ -1048,14 +1108,19 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
         lifecycleScope.launch(Dispatchers.IO) {
-            loadGifIntoImageView(zombie, R.drawable.zombie, 200, 200) // Example: Resize to 200x200 pixels
+            loadGifIntoImageView(
+                zombie,
+                R.drawable.zombie,
+                200,
+                200
+            ) // Example: Resize to 200x200 pixels
         }
 
         binding.parentLayout.addView(zombie)
         zombies.add(zombie)
 
 
-            zombie.bringToFront()
+        zombie.bringToFront()
         zombie.postDelayed({
             zombie.visibility = View.VISIBLE
 
@@ -1069,8 +1134,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         }*/
 
     private fun animateZombie(zombie: ImageView) {
-        var width = Random.nextInt(0, binding.parentLayout.width-200)
-        var height = Random.nextInt(0+260, binding.parentLayout.height-200)
+        var width = Random.nextInt(0, binding.parentLayout.width - 200)
+        var height = Random.nextInt(0 + 260, binding.parentLayout.height - 200)
         zombie.animate().x(width.toFloat()).y(height.toFloat()).setDuration(5000)
             .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
@@ -1085,11 +1150,11 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     }
 
     private fun angleAnimation(
-        item2: ImageView, closestZombieX: Float?, closestZombieY: Float?, closestZombie1: ImageView?) {
-        if(zombies.size == 0){
+        item2: ImageView, closestZombieX: Float?, closestZombieY: Float?, closestZombie1: ImageView?
+    ) {
+        if (zombies.size == 0) {
             binding.parentLayout.removeView(item2)
-        }
-        else {
+        } else {
 
             if (closestZombieX == null || closestZombieY == null) {
                 binding.parentLayout.removeView(item2)
@@ -1122,11 +1187,14 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                         binding.followers.text = "You have $followers followers"
                         binding.parentLayout.removeView(closestZombie1) // Remove from zombieLayout
                         zombies.remove(closestZombie1)
-                        if(!itemDropped){
-                            val roll = (1..itemRarity).random() // Generate roll here
-                            droppedItem(closestZombieX, closestZombieY, roll)
-                            itemDropped = true
-                        }
+                        //var lastZombie = closestZombie1
+                       // if (!itemDropped) {
+                        // (1..itemRarity).random()
+
+                            roll1 = getRandomNumber() // Generate roll here
+                            droppedItem(closestZombieX, closestZombieY, roll1)
+                           // itemDropped = true
+                       // }
 
                         experience++
                         saveExperience()
@@ -1137,15 +1205,20 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
         }
-        itemDropped = false
+   /*     itemDropped = false*/
     }
+    private fun getRandomNumber(): Int {
+        return random.nextInt(itemRarity)
+    }
+
+
 
     private fun swipeAnimation(item1: ImageView) {
         //var width = Random.nextInt(0, binding.parentLayout.width-200)
-       // var height = Random.nextInt(0+260, binding.parentLayout.height-200)
-       // machete.animate().x(width.toFloat()).y(height.toFloat()).setDuration(4000)
+        // var height = Random.nextInt(0+260, binding.parentLayout.height-200)
+        // machete.animate().x(width.toFloat()).y(height.toFloat()).setDuration(4000)
         item1.animate().rotation(-90f).setDuration(500)
-        .setListener(object : AnimatorListenerAdapter() {
+            .setListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
                     // Animation has finished!
                     Log.d("Animation", "Animation has finished for zombie")
@@ -1197,9 +1270,6 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     }
 
 
-
-
-
     private suspend fun getChangesToken() {
         changesToken = healthConnectClient.getChangesToken(
             ChangesTokenRequest(
@@ -1213,7 +1283,11 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             changesToken?.let { token ->
                 val changes = healthConnectClient.getChanges(token)
                 if (changes.changes.isNotEmpty()) {
-                    readStepsByTimeRange(healthConnectClient, Instant.now().minusSeconds(60 * 60 * 24), Instant.now())
+                    readStepsByTimeRange(
+                        healthConnectClient,
+                        Instant.now().minusSeconds(60 * 60 * 24),
+                        Instant.now()
+                    )
                 }
                 changesToken = changes.nextChangesToken
             }
@@ -1255,7 +1329,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             }
         } else {
             // No need to request permission for versions lower than Android 10
-            onActivityRecognitionPermissionGranted()
+            // onActivityRecognitionPermissionGranted()
         }
     }
 
@@ -1269,10 +1343,13 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission granted, start the service
                 onActivityRecognitionPermissionGranted()
-            /*    intent = Intent(this, MainActivity2::class.java)
-                startActivity(intent)*/
+                /*    intent = Intent(this, MainActivity2::class.java)
+                    startActivity(intent)*/
             } else {
                 // Permission denied, handle accordingly (e.g., show a message)
+                Log.e(TAG, "Activity Recognition permission denied")
+                binding.stepsTextView.text =
+                    "Activity Recognition permission denied. In-app step counting may not work."
             }
         }
     }
@@ -1280,43 +1357,105 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     private fun startStepCounterService() {
         val serviceIntent = Intent(this, StepCounterService::class.java)
-        ContextCompat.startForegroundService(this, serviceIntent)    }
+        ContextCompat.startForegroundService(this, serviceIntent)
+    }
 
 
     private suspend fun checkPermissionsAndRun() {
-        val timeoutMillis = 5000L // 5 seconds timeout (adjust as needed)
+        /*   if(!useHealthConnect){
+           if(isFirstRun){
+               isFirstRun = false
+               with(sharedPreferences.edit()) {
+                   putBoolean(PREF_IS_FIRST_RUN, isFirstRun)
+                   apply()
+               }
+           }
+               return
+               }*/
+        val timeoutMillis = 1000L // 5 seconds timeout (adjust as needed)
+        val maxRetries = 3
+        var retryCount = 0
+        while (retryCount < maxRetries) {
+            val grantedResult = withTimeoutOrNull(timeoutMillis) {
+                healthConnectClient.permissionController.getGrantedPermissions()
+            }
 
-        val grantedResult = withTimeoutOrNull(timeoutMillis) {
+
+            /*val grantedResult = withTimeoutOrNull(timeoutMillis) {
             healthConnectClient.permissionController.getGrantedPermissions()
+        }*/
+
+            if (grantedResult == null) {
+                println("Timeout: Failed to get granted permissions within $timeoutMillis ms")
+                Log.e(TAG, "Timeout: Failed to get granted permissions within $timeoutMillis ms")
+
+                // Handle timeout here (e.g., show an error message)
+                binding.stepsTextView.text =
+                    "Please Open the Health Connect App and Allow Step Writing from your fitness app. Also update your google play services."
+
+                return
+            } else {
+                Log.w(
+                    TAG,
+                    "Timeout occurred while getting granted permissions. Retry attempt: ${retryCount + 1}"
+                )
+                retryCount++
+                delay(2000L) // Wait for 2 seconds before retrying
+            }
+
+
+            /*    if(isFirstRun) {
+            intent =         Log.w(TAG, "Timeout occurred while getting granted permissions. Retry attempt: ${retryCount + 1}")
+            retryCount++
+            delay(2000L) // Wait for 2 seconds before retryingIntent(this, MainActivity2::class.java)
+            startActivity(intent)
+        }*/
+
+            val granted = grantedResult
+            if (granted.containsAll(PERMISSIONS)) {
+
+                Log.d(TAG, "Permissions already granted")
+
+                permissionsGranted = true
+                readStepsData()
+                // Permissions already granted; proceed with inserting or reading data
+                println("Permissions already granted")
+
+
+            } else {
+                Log.d(TAG, "Requesting Health Connect permissions")
+
+                requestPermissions.launch(PERMISSIONS.toTypedArray())
+            }
         }
+    }
 
-        if (grantedResult == null) {
-            println("Timeout: Failed to get granted permissions within $timeoutMillis ms")
-            // Handle timeout here (e.g., show an error message)
-            binding.stepsTextView.text =
-                "Please Open the Health Connect App and Allow Step Writing from your fitness app. Also update your google play services."
 
+    private fun readStepsData() {
+        if (!permissionsGranted) {
+            Log.e(TAG, "Cannot read steps data: Permissions not granted")
             return
         }
-
-        val granted = grantedResult
-        if (granted.containsAll(PERMISSIONS)) {
-            // Permissions already granted; proceed with inserting or reading data
-            println("Permissions already granted")
-            val startTime = Instant.now().minusSeconds(60 * 60 * 24) // 24 hours ago
-            val endTime = Instant.now()
-
-            lifecycleScope.launch {
-                val readStepsResult = withTimeoutOrNull(timeoutMillis) {
-                    readStepsByTimeRange(healthConnectClient, startTime, endTime)
+        lifecycleScope.launch {
+            try {
+                val startTime = Instant.now().minusSeconds(60 * 60 * 24) // 24 hours ago
+                val endTime = Instant.now()
+                val response = healthConnectClient.readRecords(
+                    androidx.health.connect.client.request.ReadRecordsRequest(
+                        StepsRecord::class,
+                        timeRangeFilter = androidx.health.connect.client.time.TimeRangeFilter.between(
+                            startTime,
+                            endTime
+                        )
+                    )
+                )
+                for (stepRecord in response.records) {
+                    // Process each step record
+                    Log.d(TAG, "Steps today: ${stepRecord.count}")
                 }
-                if (readStepsResult == null) {
-                    println("Timeout: Failed to read steps within $timeoutMillis ms")
-                    // Handle timeout here (e.g., show an error message)
-                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error reading steps: ${e.message}", e)
             }
-        } else {
-            requestPermissions.launch(PERMISSIONS.toTypedArray())
         }
     }
 
@@ -1328,17 +1467,21 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         endTime: Instant
     ) {
 
+        val timeoutMillis = 1000L
         try {
-            val response =
+            val response = withTimeoutOrNull(timeoutMillis) {
                 healthConnectClient.readRecords(
                     ReadRecordsRequest(
                         StepsRecord::class,
                         timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
                     )
                 )
-            for (stepRecord in response.records) {
-                // Process each step record
-                binding.stepsTextView.text = "Steps today: ${stepRecord.count}"
+            }
+            if (response != null) {
+                for (stepRecord in response.records) {
+                    // Process each step record
+                    binding.stepsTextView.text = "Steps today: ${stepRecord.count}"
+                }
             }
         } catch (e: Exception) {
             // Run error handling here.
@@ -1393,10 +1536,10 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         // Issue operations with healthConnectClient
     }
 
- /*   override fun onBackPressed() {
-        saveZombies()
-        super.onBackPressed()
-    }*/
+    /*   override fun onBackPressed() {
+           saveZombies()
+           super.onBackPressed()
+       }*/
 
 
 }

@@ -15,9 +15,16 @@ import android.os.Build
 import android.os.IBinder
 import androidx.compose.ui.input.key.type
 import androidx.core.app.NotificationCompat
+import androidx.lifecycle.lifecycleScope
 import com.zombiewalk.MainActivity2.DailyStepsChangeListener
 import com.zombiewalk.databinding.ActivityMain2Binding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.LocalDate
+
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 
 
@@ -55,13 +62,17 @@ class StepCounterService : Service(), SensorEventListener {
 
     override fun onCreate() {
         super.onCreate()
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
-        sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        isFirstRun = sharedPreferences.getBoolean(PREF_IS_FIRST_RUN, true)
-        loadData()
-        startForegroundService()
 
+        ProcessLifecycleOwner.get().lifecycleScope.launch(Dispatchers.IO) {
+            sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+            stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+            sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            isFirstRun = sharedPreferences.getBoolean(PREF_IS_FIRST_RUN, true)
+
+            loadData()
+            startForegroundService()
+
+        }
     }
 
 
@@ -82,8 +93,9 @@ class StepCounterService : Service(), SensorEventListener {
         override fun onDailyStepsChanged(dailySteps: Int): Boolean {
             // Handle the change in daily steps here
             followerCount1 = sharedPreferences.getInt("followerCount", followerCount1)
-
-            if (dailySteps % 4 == 0) {
+            if(dailySteps == 0) {
+            }
+            else if (dailySteps % 4 == 0) {
                 var roll = (1..2).random()
                 if (roll == 1) {
 
@@ -106,7 +118,7 @@ class StepCounterService : Service(), SensorEventListener {
                 previousTotalSteps = initialSensorValue
                 lastSensorValue = initialSensorValue
 
-                isFirstRun = false
+               // isFirstRun = false
                 saveData()
                //sensorManager.unregisterListener(this)
 
