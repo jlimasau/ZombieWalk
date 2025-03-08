@@ -105,6 +105,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     //items not loading on screen when added on start up
 
     //animation for machete and others should finish first before removing zombie
+    //add ammo to sharedpref to avoid deletion
 
     private lateinit var binding: ActivityMain2Binding
 
@@ -220,6 +221,14 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     var roll1 = Random.nextInt(1, itemRarity)
 
+    var molotovAmmo = 0
+    var macheteAmmo = 0
+    var crossbowAmmo = 0
+    var batAmmo = 0
+    var tomahawkAmmo = 0
+
+    var currentItemAmmo = 0
+
     interface DailyStepsChangeListener {
         fun onDailyStepsChanged(dailySteps: Int): Boolean
     }
@@ -230,7 +239,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
             with(sharedPreferences.edit()){
                 putInt(PREF_DAILY_STEPS, dailySteps)
-                apply()
+                commit()
             }
             loadItems()
             loadZombies()
@@ -241,47 +250,77 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             else {
                //the number of steps to trigger items
                //rarity
-               if (dailySteps % 20 == 0 && !items.contains("bat")) {
+               if (dailySteps % 20 == 0) {
                    var roll = (1..2).random()
                    if (roll == 1) {
-                       items.add("bat")
+                       if (!items.contains("bat")) {
+                           items.add("bat")
+                       }
+
+                           batAmmo += 20
+                           setUses()
                        saveItems()
+
+
 
                    }
                }
-               if (dailySteps % 45 == 0 && !items.contains("tomahawk")) {
+               if (dailySteps % 45 == 0) {
                    var roll = (1..2).random()
                    if (roll == 1) {
-                       items.add("tomahawk")
+                       if (!items.contains("tomahawk")) {
+                           items.add("tomahawk")
+                       }
+                           tomahawkAmmo += 50
+                           setUses()
                        saveItems()
 
-                   }
-               }
-               if (dailySteps % 90 == 0 && !items.contains("molotov")) {
-                   var roll = (1..2).random()
-                   if (roll == 1) {
-                       items.add("molotov")
-                       saveItems()
-
-                   }
-               }
-               if (dailySteps % 60 == 0 && !items.contains("crossbow")) {
-                   var roll = (1..2).random()
-                   if (roll == 1) {
-                       items.add("crossbow")
-                       saveItems()
 
                    }
                }
 
-               if (dailySteps % 30 == 0 && !items.contains("machete")) {
+               if (dailySteps % 90 == 0) {
                    var roll = (1..2).random()
                    if (roll == 1) {
-                       items.add("machete")
+                       if (!items.contains("molotov")) {
+                           items.add("molotov")
+                       }
+                           molotovAmmo += 10
+                           setUses()
                        saveItems()
+
 
                    }
                }
+
+               if (dailySteps % 60 == 0) {
+                   var roll = (1..2).random()
+                   if (roll == 1) {
+                       if (!items.contains("crossbow")) {
+                           items.add("crossbow")
+                       }
+                           crossbowAmmo += 20
+                           setUses()
+                       saveItems()
+
+
+                   }
+               }
+
+               if (dailySteps % 30 == 0) {
+                   var roll = (1..2).random()
+                   if (roll == 1) {
+                       if (!items.contains("machete")) {
+                           items.add("machete")
+                       }
+                           macheteAmmo+= 15
+                           setUses()
+                       saveItems()
+
+
+                   }
+               }
+
                if (dailySteps % 150 == 0) {
                    val adRequest = AdRequest.Builder().build()
 
@@ -359,7 +398,10 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
             runOnUiThread {
                 loadItems()
+
             }
+
+
 
 
 
@@ -428,29 +470,45 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         binding.inAppSteps.text = "In App Steps : $dailySteps"
         binding.followers.text = "You have $followers followers"
 
+
+        lifecycleScope.launch(Dispatchers.IO){
+            val startTime = Instant.now().minusSeconds(60 * 60 * 24) // 24 hours ago
+            val endTime = Instant.now()
+            readStepsByTimeRange(healthConnectClient, startTime, endTime)
+        }
+     /*   var lastRecordOfSteps = sharedPreferences.getInt(StepCounterService., 0)
+        binding.stepsTextView.text = "Last Record of Steps: $lastRecordOfSteps"
+*/
         if (testerMode == true) {
             for (i in 1..50) {
                 followers++
                 loadOneZombie()
             }
-        }
-
-        if(testerMode == true){
             if(!items.contains("tomahawk")){
-            items.add("tomahawk")
+                tomahawkAmmo = 50
+
+                items.add("tomahawk")
             }
             if(!items.contains("machete")){
+                macheteAmmo = 15
+
                 items.add("machete")
             }
             if(!items.contains("molotov")){
+                molotovAmmo =10
                 items.add("molotov")
             }
             if(!items.contains("bat")){
+                batAmmo = 20
+
                 items.add("bat")
             }
             if(!items.contains("crossbow")){
+                crossbowAmmo = 20
+
                 items.add("crossbow")
             }
+
 
             saveItems()
         }
@@ -501,6 +559,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             val ytap = event.y
             when (currentItem) {
                 "molotov" -> {
+                    molotovAmmo--
                     val radius = 500F
                     blastRadius(xtap, ytap, radius)
                     timesMolotovUsed++
@@ -543,7 +602,9 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     }
 
 
-                    if (timesMolotovUsed > 10) {
+                    if (currentItemAmmo<=1) {
+                        molotovAmmo = 0
+                        setUses()
                         items.remove("molotov")
 
 
@@ -561,6 +622,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 }
 
                 "bat" -> {
+                    batAmmo--
                     handleZombieTap(xtap, ytap)
                     timesBatUsed++
 
@@ -589,7 +651,9 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                     }
 
 
-                    if (timesBatUsed > 20) {
+                    if (currentItemAmmo <= 1) {
+                        batAmmo=0
+                        setUses()
                         items.remove("bat")
 
                         saveItems()
@@ -605,6 +669,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 }
 
                 "tomahawk" -> {
+                    tomahawkAmmo--
                     handleZombieTap(xtap, ytap)
 
 
@@ -634,7 +699,9 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                         }, 100)
                     }
 
-                    if (timesTomahawkUsed > 50) {
+                    if (currentItemAmmo <= 1) {
+                        tomahawkAmmo = 0
+                        setUses()
                         items.remove("tomahawk")
 
                         saveItems()
@@ -651,6 +718,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
                 "crossbow" -> {
 
+                    crossbowAmmo--
 
                     if (crossbowInUse) {
                         return super.onTouchEvent(event)
@@ -695,11 +763,16 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
                     }
 
-                    var crossbowUses = 20
+                /*    var crossbowUses = 20
                     if (testerMode == true){
                         crossbowUses = 100
-                    }
-                    if (timesCrossbowUsed > crossbowUses) {
+                    }*/
+                    if (currentItemAmmo <= 1) {
+                        crossbowAmmo = 0
+
+                        setUses()
+
+
                         items.remove("crossbow")
 
                         saveItems()
@@ -715,6 +788,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 }
 
                 "machete" -> {
+                    macheteAmmo--
                     handleZombieTap(xtap, ytap)
                     timesMacheteUsed++
 
@@ -748,8 +822,10 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                              loadGifIntoImageView(machete, R.drawable.zombie, 200, 200) // Example: Resize to 200x200 pixels
                          }*/
 
-                    if (timesMacheteUsed > 15) {
+                    if (currentItemAmmo <= 1) {
 
+                        macheteAmmo = 0
+                        setUses()
 
                         items.remove("machete")
 
@@ -763,6 +839,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 }
 
             }
+            setUses()
             saveZombies()
             loadItems()
 
@@ -775,6 +852,14 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         val gson = Gson()
         val json = gson.toJson(items)
         sharedPreferences.edit().putString("items", json).commit()
+
+        sharedPreferences.edit().putInt("batAmmo", batAmmo).commit()
+        sharedPreferences.edit().putInt("molotovAmmo", molotovAmmo).commit()
+        sharedPreferences.edit().putInt("tomahawkAmmo", tomahawkAmmo).commit()
+        sharedPreferences.edit().putInt("macheteAmmo", macheteAmmo).commit()
+        sharedPreferences.edit().putInt("crossbowAmmo", crossbowAmmo).commit()
+
+
     }
 
 
@@ -863,6 +948,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         }
 
 
+
         if (droppedItem1 != "noItem") {
 
             createDroppedItem(xtap, ytap, droppedItem1)
@@ -902,10 +988,30 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
                     items.add(droppedItem1)
+
+
+
                     saveItems()
                     loadItems()
 
                 }
+                if (droppedItem1 == "molotov") {
+                    molotovAmmo += 10
+                }
+                if (droppedItem1 == "tomahawk") {
+                    tomahawkAmmo += 50
+                }
+                if (droppedItem1 == "crossbow") {
+                    crossbowAmmo += 20
+                }
+                if (droppedItem1 == "machete") {
+                    macheteAmmo += 15
+                }
+                if (droppedItem1 == "bat") {
+                    batAmmo += 20
+                }
+                //update value
+                setUses()
 
                 saveItems()
                 loadItems()
@@ -915,7 +1021,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             })
 
             lifecycleScope.launch {
-                delay(5000)
+                delay(6000)
                 binding.parentLayout.removeView(droppedItem)
             }
         }
@@ -1010,6 +1116,12 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     private fun loadItems() {
 
+        batAmmo = sharedPreferences.getInt("batAmmo", batAmmo)
+        molotovAmmo = sharedPreferences.getInt("molotovAmmo", molotovAmmo)
+        tomahawkAmmo = sharedPreferences.getInt("tomahawkAmmo", tomahawkAmmo)
+        macheteAmmo = sharedPreferences.getInt("macheteAmmo", macheteAmmo)
+        crossbowAmmo = sharedPreferences.getInt("crossbowAmmo", crossbowAmmo)
+
         // val sharedPreferences: SharedPreferences = getSharedPreferences("items", Context.MODE_PRIVATE)
 
 
@@ -1062,6 +1174,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
                 button.setOnClickListener {
                     currentItem = button.text.toString()
+                    setUses()
                     sharedPreferences.edit().putString("CI", currentItem).commit()
                 }
                 buttons[i] = button
@@ -1077,6 +1190,26 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 binding.buttonlayout.visibility = View.VISIBLE
             }
         }
+    }
+
+    private fun setUses() {
+
+        if(currentItem == "molotov"){
+            currentItemAmmo = molotovAmmo
+        }
+        if(currentItem == "machete"){
+            currentItemAmmo = macheteAmmo
+        }
+        if(currentItem == "bat"){
+            currentItemAmmo = batAmmo
+        }
+        if(currentItem == "tomahawk"){
+            currentItemAmmo = tomahawkAmmo
+        }
+        if(currentItem == "crossbow"){
+            currentItemAmmo = crossbowAmmo
+        }
+        binding.uses.text = "Uses: $currentItemAmmo"
     }
 
 
@@ -1480,7 +1613,9 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             if (response != null) {
                 for (stepRecord in response.records) {
                     // Process each step record
+                    //sharedPreferences.edit().putLong("recordOfSteps", stepRecord.count).apply()
                     binding.stepsTextView.text = "Steps today: ${stepRecord.count}"
+
                 }
             }
         } catch (e: Exception) {

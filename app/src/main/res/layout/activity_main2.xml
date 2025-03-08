@@ -68,16 +68,21 @@
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toTopOf="@+id/scrollView"
         >
-    <com.google.android.flexbox.FlexboxLayout
-        android:id="@+id/zombieLayout"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        app:flexWrap="wrap"
-        app:justifyContent="flex_start"
-        app:alignItems="flex_start"
 
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"/>
+        <com.google.android.flexbox.FlexboxLayout
+            android:id="@+id/zombieLayout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentEnd="true"
+            android:layout_marginStart="0dp"
+
+            android:layout_marginEnd="0dp"
+            app:alignItems="flex_start"
+            app:flexWrap="wrap"
+            app:justifyContent="flex_start"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
 
     </RelativeLayout>
