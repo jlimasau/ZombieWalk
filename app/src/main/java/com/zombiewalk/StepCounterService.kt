@@ -24,6 +24,7 @@ import java.time.LocalDate
 
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -54,7 +55,15 @@ class StepCounterService : Service(), SensorEventListener {
         const val PREF_TOTAL_STEPS_AT_REBOOT = "totalStepsAtReboot"
         const val PREF_LAST_SENSOR_VALUE = "lastSensorValue"
         const val PREF_IS_FIRST_RUN = "isFirstRun"
+        const val PREF_LAST_DAILY_STEPS = "lastDailySteps"
+
+
     }
+
+    private var lastDailySteps = 0
+    private var dailySteps1 = 0
+    //var newDailySteps = 0
+
 
 
 
@@ -71,7 +80,10 @@ class StepCounterService : Service(), SensorEventListener {
 
 
             startForegroundService()
+
             dailySteps = sharedPreferences.getInt("lastStepCount", 0)
+            lastDailySteps = sharedPreferences.getInt("lastStepCount", 0)
+            resetDailyStepsIfNeeded()
             loadData()
         }
     }
@@ -83,6 +95,7 @@ class StepCounterService : Service(), SensorEventListener {
         stepCounterSensor?.let {
             sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
         }
+        resetDailyStepsIfNeeded()
         return START_STICKY
     }
 
@@ -94,7 +107,8 @@ class StepCounterService : Service(), SensorEventListener {
         override fun onDailyStepsChanged(dailySteps: Int): Boolean {
             // Handle the change in daily steps here
             followerCount1 = sharedPreferences.getInt("followerCount", followerCount1)
-            sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
+            resetDailyStepsIfNeeded()
+            //sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
             if(dailySteps == 0) {
             }
             else if (dailySteps % 2 == 0) {
@@ -102,8 +116,11 @@ class StepCounterService : Service(), SensorEventListener {
                 if (roll == 1) {
 
                     //var followerC = sharedPreferences.getInt("followerCount", followerCount1)
-                    followerCount1++
-                    sharedPreferences.edit().putInt("followerCount", followerCount1).apply()
+                    var gameOver = sharedPreferences.getBoolean("gameOver", false)
+                    if (!gameOver) {
+                        followerCount1++
+                        sharedPreferences.edit().putInt("followerCount", followerCount1).apply()
+                    }
                 }
             }
             return true // Return true to indicate the change was accepted
@@ -161,8 +178,29 @@ class StepCounterService : Service(), SensorEventListener {
 
                 println("Steps:    |   Steps today: $dailySteps")
 
-                dailyStepsChangeListener.onDailyStepsChanged(dailySteps)
+               val newDailySteps = dailySteps
 
+
+
+                /*lastDailySteps = sharedPreferences.getInt("lastStepCount", lastDailySteps)*/
+          /*      if(lastDailySteps > newDailySteps){
+                    lastDailySteps = newDailySteps
+                }*/
+                // Iterate through steps if needed
+                resetDailyStepsIfNeeded()
+
+                if (lastDailySteps + 2 < newDailySteps) {
+                    iterateThroughSteps(lastDailySteps, newDailySteps)
+                    sharedPreferences.edit().putInt("lastStepCount", newDailySteps).commit()
+
+                    //sharedPreferences.edit().putInt(PREF_LAST_DAILY_STEPS,lastDailySteps).commit()
+                } else {
+                    // If no iteration needed, update directly
+                    dailyStepsChangeListener.onDailyStepsChanged(dailySteps)
+                    //sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
+
+                }
+                lastDailySteps = newDailySteps
                 /*        var followerC = sharedPreferences.getInt("followerCount", 0)
                        // binding.inAppSteps.text = "In App Steps: $dailySteps"
                         //loadItems()
@@ -183,6 +221,21 @@ class StepCounterService : Service(), SensorEventListener {
         }
     }
 
+    private fun iterateThroughSteps(start: Int, end: Int) {
+        ProcessLifecycleOwner.get().lifecycleScope.launch(Dispatchers.Main) {
+            for (i in start + 1..end) {
+                dailySteps1 = i
+                sharedPreferences.edit().putInt(PREF_DAILY_STEPS, dailySteps1).commit()
+                dailyStepsChangeListener.onDailyStepsChanged(i)
+                delay(100) // Adjust the delay as needed
+            }
+            lastDailySteps = end
+
+
+            saveData()
+        }
+    }
+
 
 
 
@@ -195,12 +248,16 @@ class StepCounterService : Service(), SensorEventListener {
             putInt(PREF_DAILY_STEPS, dailySteps)
             putString(PREF_LAST_RESET_TIME, lastResetTime.toString())
             putBoolean(PREF_IS_FIRST_RUN, isFirstRun)
+            putInt(PREF_LAST_DAILY_STEPS, lastDailySteps)
+           // putInt("lastStepCount", newDailySteps)
+
             commit()
         }
     }
 
 
     private fun loadData() {
+        resetDailyStepsIfNeeded()
         if(isFirstRun){
             stepCounterSensor?.let {
                 sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_NORMAL)
@@ -213,67 +270,84 @@ class StepCounterService : Service(), SensorEventListener {
         totalStepsAtReboot = sharedPreferences.getInt(PREF_TOTAL_STEPS_AT_REBOOT, 0)
         lastSensorValue = sharedPreferences.getFloat(PREF_LAST_SENSOR_VALUE, 0f)
         previousTotalSteps = sharedPreferences.getFloat(PREF_PREVIOUS_TOTAL_STEPS, 0f)
-        dailySteps = sharedPreferences.getInt(PREF_DAILY_STEPS, dailySteps)
+        dailySteps = sharedPreferences.getInt(PREF_LAST_DAILY_STEPS, dailySteps)
         lastResetTime = LocalDate.parse(sharedPreferences.getString(PREF_LAST_RESET_TIME, LocalDate.now().toString()))
+        lastDailySteps = sharedPreferences.getInt(PREF_LAST_DAILY_STEPS, 0)
+
         }
-        resetDailyStepsIfNeeded()
+
     }
 
     private fun resetDailyStepsIfNeeded() {
 
         val today = LocalDate.now()
-        if (today != lastResetTime){
+        sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        var gameOver = sharedPreferences.getBoolean("gameOver", false)
+        if (gameOver) {
             dailySteps = 0
-            totalStepsAtReboot = 0
-            lastResetTime = today
+            sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
             saveData()
         }
-    }
+
+
+  if (today.isAfter(lastResetTime)) {
+          dailySteps = 0
+          totalStepsAtReboot = 0
+          lastResetTime = today
+          sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
+
+          saveData()
+      }
+
+
+}
 
 
 
 
 
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // Handle accuracy changes if needed
-    }
+override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+  // Handle accuracy changes if needed
+}
 
-    private fun startForegroundService() {
-        val channelId =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                createNotificationChannel("my_service", "My Background Service")
-            } else {
-                // If earlier version channel ID is not used
-                // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
-                ""
-            }
+private fun startForegroundService() {
+  val channelId =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          createNotificationChannel("my_service", "My Background Service")
+      } else {
+          // If earlier version channel ID is not used
+          // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
+          ""
+      }
 
-        val notificationBuilder = NotificationCompat.Builder(this, channelId)
-        val notification = notificationBuilder.setOngoing(true)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationManager.IMPORTANCE_MIN)
-            .setCategory(Notification.CATEGORY_SERVICE)
-            .build()
-        startForeground(101, notification)
-    }
+  val notificationBuilder = NotificationCompat.Builder(this, channelId)
+  val notification = notificationBuilder.setOngoing(true)
+      .setSmallIcon(R.mipmap.ic_launcher)
+      .setPriority(NotificationManager.IMPORTANCE_MIN)
+      .setCategory(Notification.CATEGORY_SERVICE)
+      .build()
+  startForeground(101, notification)
+}
 
-    private fun createNotificationChannel(channelId: String, channelName: String): String {
-        val chan = NotificationChannel(
-            channelId,
-            channelName, NotificationManager.IMPORTANCE_NONE
-        )
-        chan.lightColor = android.graphics.Color.BLUE
-        chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
-        val service = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        service.createNotificationChannel(chan)
-        return channelId
-    }
+private fun createNotificationChannel(channelId: String, channelName: String): String {
+  val chan = NotificationChannel(
+      channelId,
+      channelName, NotificationManager.IMPORTANCE_NONE
+  )
+  chan.lightColor = android.graphics.Color.BLUE
+  chan.lockscreenVisibility = Notification.VISIBILITY_PRIVATE
+  val service = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+  service.createNotificationChannel(chan)
+  return channelId
+}
 
-    override fun onDestroy() {
-        super.onDestroy()
-        saveData()
-        sensorManager.unregisterListener(this)
-    }
+override fun onDestroy() {
+  super.onDestroy()
+  saveData()
+  sensorManager.unregisterListener(this)
+}
+
+
 
 
 }

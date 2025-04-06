@@ -42,7 +42,7 @@ android {
 
 dependencies {
 
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7") 
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-process:2.8.7")
 
     implementation ("com.google.android.gms:play-services-base:18.5.0") // Or latest version
@@ -62,7 +62,7 @@ dependencies {
 
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
-    implementation("androidx.health.connect:connect-client:1.1.0-alpha11")
+    implementation("androidx.health.connect:connect-client:1.1.0-beta01")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.7.3")
 
     implementation(kotlin("reflect"))
