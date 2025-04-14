@@ -109,6 +109,7 @@ class StepCounterService : Service(), SensorEventListener {
             followerCount1 = sharedPreferences.getInt("followerCount", followerCount1)
             resetDailyStepsIfNeeded()
             //sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
+
             if(dailySteps == 0) {
             }
             else if (dailySteps % 2 == 0) {
@@ -130,6 +131,7 @@ class StepCounterService : Service(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_STEP_COUNTER) {
             val sensorValue = event.values[0]
+            resetDailyStepsIfNeeded()
 
             if(isFirstRun && !sensorUpdated){
                 initialSensorValue = sensorValue
@@ -187,7 +189,7 @@ class StepCounterService : Service(), SensorEventListener {
                     lastDailySteps = newDailySteps
                 }*/
                 // Iterate through steps if needed
-                resetDailyStepsIfNeeded()
+
 
                 if (lastDailySteps + 2 < newDailySteps) {
                     iterateThroughSteps(lastDailySteps, newDailySteps)
@@ -223,6 +225,7 @@ class StepCounterService : Service(), SensorEventListener {
 
     private fun iterateThroughSteps(start: Int, end: Int) {
         ProcessLifecycleOwner.get().lifecycleScope.launch(Dispatchers.Main) {
+
             for (i in start + 1..end) {
                 dailySteps1 = i
                 sharedPreferences.edit().putInt(PREF_DAILY_STEPS, dailySteps1).commit()
@@ -282,11 +285,16 @@ class StepCounterService : Service(), SensorEventListener {
 
         val today = LocalDate.now()
         sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        var dontResetCount = sharedPreferences.getBoolean("dontResetCount", true)
         var gameOver = sharedPreferences.getBoolean("gameOver", false)
-        if (gameOver) {
-            dailySteps = 0
-            sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
-            saveData()
+
+        if(!dontResetCount && !gameOver) {
+
+                dailySteps = 0
+                sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
+                saveData()
+
+            sharedPreferences.edit().putBoolean("dontResetCount", true).commit()
         }
 
 
