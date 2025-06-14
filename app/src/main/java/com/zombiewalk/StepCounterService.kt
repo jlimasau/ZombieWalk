@@ -13,6 +13,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.compose.ui.input.key.type
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.lifecycleScope
@@ -105,6 +106,17 @@ class StepCounterService : Service(), SensorEventListener {
 
     private val dailyStepsChangeListener = object : DailyStepsChangeListener {
         override fun onDailyStepsChanged(dailySteps: Int): Boolean {
+
+
+
+
+            if(lastDailySteps == 0){
+
+                iterateThroughSteps(0, dailySteps)
+                sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
+
+            }
+
             // Handle the change in daily steps here
             followerCount1 = sharedPreferences.getInt("followerCount", followerCount1)
             resetDailyStepsIfNeeded()
@@ -191,7 +203,7 @@ class StepCounterService : Service(), SensorEventListener {
                 // Iterate through steps if needed
 
 
-                if (lastDailySteps + 2 < newDailySteps) {
+              if (lastDailySteps + 2 < newDailySteps) {
                     iterateThroughSteps(lastDailySteps, newDailySteps)
                     sharedPreferences.edit().putInt("lastStepCount", newDailySteps).commit()
 
@@ -225,7 +237,6 @@ class StepCounterService : Service(), SensorEventListener {
 
     private fun iterateThroughSteps(start: Int, end: Int) {
         ProcessLifecycleOwner.get().lifecycleScope.launch(Dispatchers.Main) {
-
             for (i in start + 1..end) {
                 dailySteps1 = i
                 sharedPreferences.edit().putInt(PREF_DAILY_STEPS, dailySteps1).commit()
@@ -354,6 +365,7 @@ override fun onDestroy() {
   saveData()
   sensorManager.unregisterListener(this)
 }
+
 
 
 

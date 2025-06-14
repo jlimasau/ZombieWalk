@@ -51,9 +51,12 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.OnUserEarnedRewardListener
 import com.google.android.gms.ads.initialization.InitializationStatus
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
+import com.google.android.gms.ads.rewarded.RewardedAd
+import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
@@ -71,12 +74,12 @@ import kotlin.reflect.jvm.internal.impl.resolve.constants.StringValue
 
 class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
 
-
+    //check that fresh start up is smooth and user is directed to accept permissions with a reason
     //allow permission from both the app and the health app like samsung health
     //make sure to handle permission denied
     //make sure to tell user why your asking for permission
     //instruct user to turn on health connect in samsung health or google fit and allow step writing
-    //if user doesnt set up health connect provide an in app step counter? or use cities only
+    //if user doesnt set up health connect provide an in app step counter? or use cities and streets only
 
 
     //have counter start when user returns to app to show distance since last use
@@ -85,33 +88,26 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     //have an in app step counter so users can play without sync. then if users want they can add sync for more items or stuff
 
     //check android version then direct user to use in app step counter otherwise run health connect app step count code
+    //go to health connect website and get version support then have app match, update play console versioning
 
-    //check that fresh start up is smooth and user is directed to accept permissions with a reason
+
 
     //fix return location initiation
     //write privacy policy
     //rewarded ad for cool items
     //add item ammo or use amount
-    //add zombie animation when tapped
+
     //zombies added over time
 
-//bug: on phone restart step count was -37222 FIXED
-    //animation that goes from tap to zombie that was removed coordinates representing the arrow
 
 
-    //items usage should save across sessions
+
+
 
     //test for followers appearing at 0 steps, could have been from previous day, in app steps not zero, and items preloaded
 
-    //a chancethat a zombie drops an item after each removal
 
 
-    //fix one zombie and all items on start
-
-    //items not loading on screen when added on start up FIXED
-
-    //animation for machete and others should finish first before removing zombie
-    //add ammo to sharedpref to avoid deletion
 
     //double check privacy policy appears on healthconnect permission request
 
@@ -122,7 +118,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     //grant health connect permissions button should open settings menu
 
 
-    //consider adding a pause button
+
 
     private lateinit var binding: ActivityMain2Binding
 
@@ -226,7 +222,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
 
-    var testerMode = true
+    var testerMode = false
 
 
     private val targetedZombies = mutableSetOf<ImageView>()
@@ -289,6 +285,8 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     var stepTotal = 0
     var latestZombie: ImageView? = null
+    private var rewardedAd: RewardedAd? = null
+   // private final var TAG = "MainActivity2"
 
     interface DailyStepsChangeListener {
         fun onDailyStepsChanged(dailySteps: Int): Boolean
@@ -468,6 +466,19 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         }
             .start()
 
+        var adRequest = AdRequest.Builder().build()
+        RewardedAd.load(this,"ca-app-pub-3940256099942544/5224354917", adRequest, object : RewardedAdLoadCallback() {
+            override fun onAdFailedToLoad(adError: LoadAdError) {
+                Log.d(TAG, adError.toString())
+                rewardedAd = null
+            }
+
+            override fun onAdLoaded(ad: RewardedAd) {
+                Log.d(TAG, "Ad was loaded.")
+                rewardedAd = ad
+            }
+        })
+
 
         binding = ActivityMain2Binding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -518,7 +529,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
         sharedPreferences.registerOnSharedPreferenceChangeListener(this)
 
-        val dailySteps = sharedPreferences.getInt(StepCounterService.PREF_DAILY_STEPS, 0)
+        var dailySteps = sharedPreferences.getInt(StepCounterService.PREF_DAILY_STEPS, 0)
         pauseSensor = sharedPreferences.getBoolean("pauseSensor", false)
         if(pauseSensor){
 
@@ -530,9 +541,12 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
                 binding.inAppSteps.text = "In App Steps: $lastDailySteps"
             }
             else {*/
-                binding.inAppSteps.text = "In App Steps: $dailySteps"
 
+
+            dailySteps = sharedPreferences.getInt(StepCounterService.PREF_DAILY_STEPS, 0)
+            binding.inAppSteps.text = "In App Steps: $dailySteps"
         }
+
         //binding.inAppSteps.text = "In App Steps : $dailySteps"
         if(followers == 0){
             binding.followers.text = "No zombies here"
@@ -553,7 +567,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         binding.stepsTextView.text = "Last Record of Steps: $lastRecordOfSteps"
 */
         if (testerMode == true) {
-            health = 9
+            health = 1
             sharedPreferences.edit().putInt("health" , health).commit()
             for (i in 1..50) {
                 followers++
@@ -782,6 +796,59 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
         binding.respawnWithItems.setOnClickListener {
 
+      /*      var adRequest = AdRequest.Builder().build()
+            RewardedAd.load(this,"ca-app-pub-3940256099942544/5224354917", adRequest, object : RewardedAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    Log.d(TAG, adError.toString())
+                    rewardedAd = null
+                }
+
+                override fun onAdLoaded(ad: RewardedAd) {
+                    Log.d(TAG, "Ad was loaded.")
+                    rewardedAd = ad
+                }
+            })*/
+            //add ad
+
+     /*       private var rewardedAd: RewardedAd? = null
+            private final var TAG = "MainActivity"
+*/
+
+            rewardedAd?.fullScreenContentCallback = object: FullScreenContentCallback() {
+                override fun onAdClicked() {
+                    // Called when a click is recorded for an ad.
+                    Log.d(TAG, "Ad was clicked.")
+                }
+
+                override fun onAdDismissedFullScreenContent() {
+                    // Called when ad is dismissed.
+                    // Set the ad reference to null so you don't show the ad a second time.
+                    Log.d(TAG, "Ad dismissed fullscreen content.")
+                    rewardedAd = null
+                }
+
+
+
+                override fun onAdImpression() {
+                    // Called when an impression is recorded for an ad.
+                    Log.d(TAG, "Ad recorded an impression.")
+                }
+
+                override fun onAdShowedFullScreenContent() {
+                    // Called when ad is shown.
+                    Log.d(TAG, "Ad showed fullscreen content.")
+                }
+            }
+
+            rewardedAd?.let { ad ->
+                ad.show(this, OnUserEarnedRewardListener { rewardItem ->
+                    // Handle the reward.
+
+
+
+
+
+
             //var lastStepCount = sharedPreferences.getInt("lastStepCount", 0)
             var pauseSensor = false
             sharedPreferences.edit().putBoolean("pauseSensor", pauseSensor).commit()
@@ -847,10 +914,61 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
        /*     sharedPreferences.edit().putInt(StepCounterService.PREF_DAILY_STEPS, lastStepCount).commit()
 
             sharedPreferences.edit().putInt("lastStepCount", lastStepCount).commit()*/
+                    val rewardAmount = rewardItem.amount
+                    val rewardType = rewardItem.type
+                    Log.d(TAG, "User earned the reward.")
+                })
+            } ?: run {
+                Log.d(TAG, "The rewarded ad wasn't ready yet.")
+            }
+         /*   adRequest = AdRequest.Builder().build()
+            RewardedAd.load(this,"ca-app-pub-3940256099942544/5224354917", adRequest, object : RewardedAdLoadCallback() {
+                override fun onAdFailedToLoad(adError: LoadAdError) {
+                    Log.d(TAG, adError.toString())
+                    rewardedAd = null
+                }
+
+                override fun onAdLoaded(ad: RewardedAd) {
+                    Log.d(TAG, "Ad was loaded.")
+                    rewardedAd = ad
+                }
+            })*/
 
         }
 
+
+        if(binding.inAppSteps.text.equals("In App Steps: ")){
+
+            /*  checkAndRequestPermissions()
+
+              lifecycleScope.launch(Dispatchers.IO){
+                  val startTime = Instant.now().minusSeconds(60 * 60 * 24) // 24 hours ago
+                  val endTime = Instant.now()
+                  healthConnectClient?.let { readStepsByTimeRange(it, startTime, endTime) }
+              }*/
+            lastDailySteps = sharedPreferences.getInt("stepTotal", 0)
+            dailySteps = lastDailySteps
+            sharedPreferences.edit().putInt("lastStepCount", dailySteps).commit()
+
+            //sharedPreferences.edit().putInt(StepCounterService.PREF_DAILY_STEPS, dailySteps).commit()
+            binding.inAppSteps.text = "In App Steps: $dailySteps"
+            sharedPreferences.edit().putBoolean("pauseSensor", false).commit()
+
+
+        }
+
+
     }
+
+
+
+
+
+
+
+
+
+
 
 private fun updateShield() {
     shield?.let {
@@ -1467,6 +1585,8 @@ private fun updateShield() {
 
 
                     if (hp <= 0) {
+                        experience++
+                        saveExperience()
                         followers--
                         if (followers == 0) {
                             binding.followers.text = "No zombies here"
@@ -1503,8 +1623,7 @@ private fun updateShield() {
 
 
                                     // zombies.remove(zombie2)
-                                    experience++
-                                    saveExperience()
+
                                     saveZombies()
                                 }
                             })
@@ -1971,7 +2090,7 @@ private fun updateShield() {
                         200
                     ) // Example: Resize to 200x200 pixels
                 }
-                editor.putInt(zombie7.newId.toString(), 12).apply()
+                editor.putInt(zombie7.newId.toString(), 12).commit()
                 editor.putString(zombie7.newId.toString() + "item", "nothing").apply()
 
 
@@ -2002,7 +2121,7 @@ private fun updateShield() {
                     }
 
                 }
-                editor.putInt(zombie7.newId.toString(), 18).apply()
+                editor.putInt(zombie7.newId.toString(), 18).commit()
                 editor.putString(zombie7.newId.toString() + "item", "nothing").apply()
 
 
@@ -2020,7 +2139,7 @@ private fun updateShield() {
                         200
                     ) // Example: Resize to 200x200 pixels
                 }
-                editor.putInt(zombie7.newId.toString(), 24).apply()
+                editor.putInt(zombie7.newId.toString(), 24).commit()
                 editor.putString(zombie7.newId.toString() + "item", "shield").apply()
 
 
@@ -2065,8 +2184,8 @@ private fun updateShield() {
                     }
 
                 }
-                editor.putInt(zombie7.newId.toString(), 6).apply()
-                editor.putString(zombie7.newId.toString() + "item", "nothing").apply()
+                editor.putInt(zombie7.newId.toString(), 6).commit()
+                editor.putString(zombie7.newId.toString() + "item", "nothing").commit()
 
             }
         }
@@ -2175,8 +2294,7 @@ private fun updateShield() {
 
                             currentItem = "nothing"
                             binding.health.text = "Game Over"
-                            binding.respawn.visibility = View.VISIBLE
-                            binding.respawnWithItems.visibility = View.VISIBLE
+
 
 
                             noFootSteps = true
@@ -2198,11 +2316,24 @@ private fun updateShield() {
                             if(oneAd) {
 
                                 val adRequest = AdRequest.Builder().build()
+                                RewardedAd.load(this@MainActivity2,"ca-app-pub-3940256099942544/5224354917", adRequest, object : RewardedAdLoadCallback() {
+                                    override fun onAdFailedToLoad(adError: LoadAdError) {
+                                        Log.d(TAG, adError.toString())
+                                        rewardedAd = null
+                                    }
+
+                                    override fun onAdLoaded(ad: RewardedAd) {
+                                        Log.d(TAG, "Ad was loaded.")
+                                        rewardedAd = ad
+                                    }
+                                })
+
+                                val adRequest2 = AdRequest.Builder().build()
 
                                 InterstitialAd.load(
                                     this@MainActivity2,
                                     "ca-app-pub-3940256099942544/1033173712",
-                                    adRequest,
+                                    adRequest2,
                                     object : InterstitialAdLoadCallback() {
                                         override fun onAdFailedToLoad(adError: LoadAdError) {
                                             Log.d(TAG, adError.toString())
@@ -2221,6 +2352,8 @@ private fun updateShield() {
                                             Log.d(TAG, "Ad was loaded.")
                                             mInterstitialAd = interstitialAd
                                             mInterstitialAd?.show(this@MainActivity2)
+                                            binding.respawn.visibility = View.VISIBLE
+                                            binding.respawnWithItems.visibility = View.VISIBLE
                                         }
                                     })
 
@@ -2359,6 +2492,8 @@ private fun updateShield() {
 
 
                             if (hp1 <= 0 && closestZombie1 != lastZombie) {
+                                experience++
+                                saveExperience()
 
                                 followers--
                                 if (followers <= 0) {
@@ -2400,8 +2535,7 @@ private fun updateShield() {
 
 
                                             // zombies.remove(zombie2)
-                                            experience++
-                                            saveExperience()
+
                                             saveZombies()
                                         }
                                     })
@@ -2870,6 +3004,12 @@ private fun updateShield() {
            super.onBackPressed()
        }*/
 
+
+
+
+
+
+
     override fun onResume() {
         super.onResume()
         //dismissedPermissions = sharedPreferences.getBoolean("dismissedPermissions", false)
@@ -2895,11 +3035,23 @@ private fun updateShield() {
     }
 /*
 
+
+
+
     override fun onRestart(){
         super.onRestart()
 
        reinitializeLayout()
     }*/
+
+
+
+    override fun onPause() {
+        super.onPause()
+        //val dailySteps = sharedPreferences.getInt(StepCounterService.PREF_DAILY_STEPS, 0)
+        //sharedPreferences.edit().putInt("onPause", lastDailySteps).commit()
+       // Log.d("MainActivity2", "Saved dailySteps to SharedPreferences: $dailySteps")
+    }
 
     private fun reinitializeLayout() {
         Log.d(TAG, "reinitializeLayout called")

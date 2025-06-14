@@ -32,6 +32,8 @@
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-7556369241256454~5672438581" />
 
+
+
         <service
             android:name=".StepCounterService"
             android:exported="false"
