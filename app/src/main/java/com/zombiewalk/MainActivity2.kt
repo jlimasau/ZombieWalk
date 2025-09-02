@@ -501,7 +501,9 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             sharedPreferences.getBoolean(PREF_HAS_GRANTED_PERMISSIONS, true)
 
 
-        requestPermissions =
+
+        //TODO configure healthConnectFirstTime
+/*        requestPermissions =
             registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
                 if (result.all { it.value }) {
                     healthConnectPermissionsGranted = true
@@ -518,11 +520,11 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
 
-                 /*   intent = Intent(this, MainActivity::class.java)
-                    startActivity(intent)*/
+                 *//*   intent = Intent(this, MainActivity::class.java)
+                    startActivity(intent)*//*
                 }
 
-            }
+            }*/
         lifecycleScope.launch(Dispatchers.IO){
         checkAndRequestPermissions()
         }
@@ -635,14 +637,14 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
         //make sure each button opens its respective permission
         binding.healthConnectPermissions.setOnClickListener {
-            lifecycleScope.launch {
+      /*      lifecycleScope.launch {
                 checkPermissionsAndRun()
-            }
+            }*/
         }
         binding.inAppStepsPermission.setOnClickListener {
-            lifecycleScope.launch {
+       /*     lifecycleScope.launch {
                 checkPermissionsAndRun()
-            }
+            }*/
         }
 
 
@@ -1084,19 +1086,19 @@ private fun updateShield() {
 
         binding.inAppStepsPermission.visibility = View.INVISIBLE
 
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
+   /*     if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
             checkHealthConnectStatus(this, providerPackageName)
             runBlocking {
                 checkPermissionsAndRun()
             }
-        }
-        if (permissionsGranted) {
+        }*/
+     /*   if (permissionsGranted) {
             lifecycleScope.launch {
                // getChangesToken()
                 //startListeningForChanges()
             }
 
-                }
+                }*/
 
 
 
@@ -2700,7 +2702,7 @@ private fun updateShield() {
                 )
             } else {
                 // Permission already granted, start the service
-                onActivityRecognitionPermissionGranted()
+                /*onActivityRecognitionPermissionGranted()*/
             }
         } else {
             // No need to request permission for versions lower than Android 10
@@ -2734,27 +2736,29 @@ private fun updateShield() {
                     binding.inAppStepsPermission.visibility = View.VISIBLE
                     binding.dismissButton.visibility = View.VISIBLE
                     healthConnectFirstTime = false
+
                     // sharedPreferences.edit().putBoolean("healthConnectFirstTime", false).commit()
                 }
 
-                    if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
+
+               /*     if (Build.VERSION.SDK_INT > Build.VERSION_CODES.TIRAMISU) {
                         checkHealthConnectStatus(this, providerPackageName)
                         runBlocking {
                             checkPermissionsAndRun()
-                        }
+                        }*/
                      /*   lifecycleScope.launch {
                             getChangesToken()
                            // startListeningForChanges()
                         }*/
                     }
-                if(permissionsGranted) {
+          /*      if(permissionsGranted) {
                     lifecycleScope.launch(Dispatchers.IO) {
                         val startTime = Instant.now().minusSeconds(60 * 60 * 24) // 24 hours ago
                         val endTime = Instant.now()
                         healthConnectClient?.let { readStepsByTimeRange(it, startTime, endTime) }
                     }
                 }
-                }
+                }*/
 
         }
     }
