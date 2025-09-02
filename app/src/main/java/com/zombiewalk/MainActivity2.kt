@@ -64,12 +64,10 @@ import com.zombiewalk.databinding.ActivityMain2Binding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import kotlin.random.Random
-import kotlin.reflect.jvm.internal.impl.resolve.constants.StringValue
 
 
 class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceChangeListener {
@@ -214,15 +212,18 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     }
 
     private var experience = 0
+
+    //test if neccessary
     var timesBatUsed = 0
     var timesMolotovUsed = 0
     var timesTomahawkUsed = 0
     var timesCrossbowUsed = 0
     var timesMacheteUsed = 0
+    var timesStoneUsed = 0
 
 
 
-    var testerMode = false
+    var testerMode = true
 
 
     private val targetedZombies = mutableSetOf<ImageView>()
@@ -252,6 +253,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     var crossbowAmmo = 0
     var batAmmo = 0
     var tomahawkAmmo = 0
+    var stoneAmmo = 0
 
     var currentItemAmmo: Int = 0
 
@@ -569,12 +571,18 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         binding.stepsTextView.text = "Last Record of Steps: $lastRecordOfSteps"
 */
         if (testerMode == true) {
-            health = 1
+            health = 20
             sharedPreferences.edit().putInt("health" , health).commit()
             for (i in 1..50) {
                 followers++
                 loadOneZombie()
             }
+            if(!items.contains("stone")){
+                stoneAmmo = 40
+
+                items.add("stone")
+            }
+
             if(!items.contains("tomahawk")){
                 tomahawkAmmo = 50
 
@@ -772,6 +780,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
             tomahawkAmmo = 0
             crossbowAmmo = 0
             molotovAmmo = 0
+            stoneAmmo = 0
             saveItems()
             loadItems()
             binding.buttonlayout.visibility = View.VISIBLE
@@ -1141,6 +1150,71 @@ private fun updateShield() {
             val xtap = event.x
             val ytap = event.y
             when (currentItem) {
+
+
+
+                "stone" -> {
+                    stoneAmmo--
+                    saveItems()
+                    setUses()
+
+                   // handleZombieTap(xtap, ytap)
+                   // timesStoneUsed++
+
+                    val Stone = ImageView(this@MainActivity2)
+                    Stone.setImageResource(R.drawable.stone1)
+
+                    Stone.background = null
+                    Stone.visibility = View.INVISIBLE
+
+
+                    binding.parentLayout.addView(Stone)
+                    Stone.layoutParams.width = 100
+                    Stone.layoutParams.height = 100
+                    Stone.layoutParams.height = 100
+
+                    Stone.bringToFront()
+                    // Use post() to get the correct width and height
+
+
+                    var closestZombie1 = closestZombie(xtap, ytap)
+                    timesStoneUsed++
+
+                    var closestZombieX = closestZombie1?.x
+                    var closestZombieY = closestZombie1?.y
+
+                    Stone.post {
+                        // Now we know the width and height
+                        Stone.x = xtap - Stone.width + 50
+                        Stone.y = ytap - Stone.height + 125
+                        Stone.visibility = View.VISIBLE
+
+                        Stone.postDelayed({
+                            perpetualMotion(Stone, closestZombieX, closestZombieY, closestZombie1)
+                        }, 100)
+
+                    }
+
+
+                    if (currentItemAmmo < 1) {
+                        stoneAmmo=0
+                        setUses()
+                        items.remove("stone")
+
+                        saveItems()
+                        loadItems()
+                        timesStoneUsed = 0
+                        currentItem = null
+                        sharedPreferences.edit().putString("CI", currentItem).commit()
+                    }
+                    //add logic for multiple items or multiple uses
+                    //if item runs out{
+                    //currentItem = null
+                    //sharePreferences.edit().putString("CI", currentItem).commit()
+                }
+
+
+
                 "molotov" -> {
                     molotovAmmo--
                     saveItems()
@@ -1469,6 +1543,7 @@ private fun updateShield() {
         val json = gson.toJson(items)
         sharedPreferences.edit().putString("items", json).commit()
 
+        sharedPreferences.edit().putInt("stoneAmmo", stoneAmmo).commit()
         sharedPreferences.edit().putInt("batAmmo", batAmmo).commit()
         sharedPreferences.edit().putInt("molotovAmmo", molotovAmmo).commit()
         sharedPreferences.edit().putInt("tomahawkAmmo", tomahawkAmmo).commit()
@@ -1582,6 +1657,19 @@ private fun updateShield() {
                         sharedPreferences.edit().putInt(zombieId.toString(), hp).commit()
 
                     }
+                    else if (currentItem == "stone") {
+
+                        var x = random.nextInt(1,3)
+                        if (x.equals(1)) {
+                            hp -= 0
+                            println("no damage" + closestZombie.tag.toString())
+                        }
+                        else {
+                            hp -= 3
+                            println("damage" + closestZombie.tag.toString())
+                        }
+                        sharedPreferences.edit().putInt(zombieId.toString(), hp).commit()
+                    }
 
                     hp = sharedPreferences.getInt(zombieId.toString(), 6)
 
@@ -1687,10 +1775,14 @@ private fun updateShield() {
             if (roll == 6) {
                 droppedItem1 = "medicine"
             }
+            if (roll > 7 && roll < 20) {
+                droppedItem1 = "stone"
+            }
         }
 
 
 
+        //test if neccessary
         if (droppedItem1 != "noItem") {
 
             if(zombie1 != latestZombie) {
@@ -1710,6 +1802,11 @@ private fun updateShield() {
 
     private fun createDroppedItem(xtap: Float, ytap: Float, droppedItem1: String) {
         val droppedItem = ImageView(this@MainActivity2)
+        if(droppedItem1 == "stone"){
+            var stoneVar = "stone1"
+            resources.getIdentifier(stoneVar, "drawable", packageName)
+        }
+
         if(droppedItem1 == "molotov"){
             droppedItem.setImageResource(
                 resources.getIdentifier(droppedItem1 + "1", "drawable", packageName)
@@ -1784,6 +1881,9 @@ private fun updateShield() {
                 }
                 if (droppedItem1 == "bat") {
                     batAmmo += 25
+                }
+                if (droppedItem1 == "stone") {
+                    stoneAmmo += 6
                 }
               /*  if (droppedItem1 == "shield"){
                     shieldHealth += 25
@@ -1947,6 +2047,7 @@ private fun updateShield() {
         tomahawkAmmo = sharedPreferences.getInt("tomahawkAmmo", tomahawkAmmo)
         macheteAmmo = sharedPreferences.getInt("macheteAmmo", macheteAmmo)
         crossbowAmmo = sharedPreferences.getInt("crossbowAmmo", crossbowAmmo)
+        stoneAmmo = sharedPreferences.getInt("stoneAmmo", stoneAmmo)
         //shieldHealth = sharedPreferences.getInt("shieldHealth", shieldHealth)
 
 
@@ -2044,6 +2145,11 @@ private fun updateShield() {
             currentItemAmmo = batAmmo
             binding.uses.text = "Uses: $currentItemAmmo"
         }
+        if(currentItem == "stone"){
+            currentItemAmmo = stoneAmmo
+            binding.uses.text = "Uses: $currentItemAmmo"
+        }
+
         if(currentItem == "tomahawk"){
             currentItemAmmo = tomahawkAmmo
             binding.uses.text = "Uses: $currentItemAmmo"
@@ -2429,6 +2535,130 @@ private fun updateShield() {
 
     }
 
+
+
+
+
+
+
+    private fun perpetualMotion(
+        item3: ImageView,
+        closestZombieX: Float?,
+        closestZombieY: Float?,
+        closestZombie1: ImageView?
+    ) {
+
+        var cZombieX = closestZombieX
+        var cZombieY = closestZombieY
+        //var width = Random.nextInt(0, binding.parentLayout.width-200)
+        // var height = Random.nextInt(0+260, binding.parentLayout.height-200)
+        // machete.animate().x(width.toFloat()).y(height.toFloat()).setDuration(4000)
+        if (cZombieX != null) {
+            if (cZombieY != null) {
+                item3.animate().rotation(-360f).x(cZombieX).y(cZombieY).setDuration(500)
+                    .setListener(object : AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(animation: Animator) {
+                            // Animation has finished!
+                            Log.d("Animation", "Animation has finished for zombie")
+                            // Perform your action here
+                            // For example, you could start another animation, update the UI, etc.
+
+
+                            binding.parentLayout.removeView(item3)
+                        }
+                    })
+            }
+        }
+          /*  .animate().x(width.toFloat()).y(height.toFloat()).setDuration(5000)
+            .setListener(object : AnimatorListenerAdapter() {*/
+
+        if (zombies.size == 0) {
+            binding.parentLayout.removeView(item3)
+        } else {
+
+            if (closestZombieX == null || closestZombieY == null) {
+                binding.parentLayout.removeView(item3)
+                return
+            }
+
+
+            if (closestZombie1 != null) {
+                var hp1 = sharedPreferences.getInt(closestZombie1.tag.toString(), 0)
+                println(hp1)
+
+
+                // var hp = sharedPreferences.getInt(zombieId.toString(), 6)
+
+                if (hp1 <= 0) {
+                    return
+                }
+                //consider adding option to take no damage at all
+                hp1 -= 3
+                sharedPreferences.edit().putInt(closestZombie1.tag.toString(), hp1)
+                    .commit()
+
+
+                println(hp1)
+
+
+
+
+
+                //if took out the last one
+                if (hp1 <= 0 && closestZombie1 != lastZombie) {
+                    experience++
+                    saveExperience()
+
+                    followers--
+                    if (followers <= 0) {
+                        binding.followers.text = "No zombies here"
+                    } else {
+                        binding.followers.text =
+                            "You have $followers followers"
+                    }
+                    roll1 = getRandomNumber()
+                    droppedItem(
+                        closestZombieX,
+                        closestZombieY,
+                        roll1,
+                        closestZombie1
+                    )
+
+                    closestZombie1.setOnClickListener(null)
+
+                    closestZombie1.animate().rotation(90.toFloat()).setDuration(400)
+                        .setListener(object : AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: Animator) {
+
+                                lastZombie = closestZombie1
+                                zombies.remove(closestZombie1)
+
+
+                                saveZombies()
+                                loadZombies()
+
+
+                                binding.parentLayout.removeView(closestZombie1) // Remove from zombieLayout
+
+
+                                saveZombies()
+                            }
+                        })
+                }
+
+
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
     private fun angleAnimation(
         item2: ImageView, closestZombieX: Float?, closestZombieY: Float?, closestZombie1: ImageView?
     ) {
@@ -2591,6 +2821,9 @@ private fun updateShield() {
                 }
             })
     }
+
+
+
 
     private fun loadGifIntoImageView(imageView: ImageView, gifResId: Int, width: Int, height: Int) {
 
