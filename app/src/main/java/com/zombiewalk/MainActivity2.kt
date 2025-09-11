@@ -223,7 +223,7 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
 
 
-    var testerMode = true
+    var testerMode = false
 
 
     private val targetedZombies = mutableSetOf<ImageView>()
@@ -1162,7 +1162,7 @@ private fun updateShield() {
                    // timesStoneUsed++
 
                     val Stone = ImageView(this@MainActivity2)
-                    Stone.setImageResource(R.drawable.stone1)
+                    Stone.setImageResource(R.drawable.stone)
 
                     Stone.background = null
                     Stone.visibility = View.INVISIBLE
@@ -1802,10 +1802,10 @@ private fun updateShield() {
 
     private fun createDroppedItem(xtap: Float, ytap: Float, droppedItem1: String) {
         val droppedItem = ImageView(this@MainActivity2)
-        if(droppedItem1 == "stone"){
-            var stoneVar = "stone1"
-            resources.getIdentifier(stoneVar, "drawable", packageName)
-        }
+    /*    if(droppedItem1 == "stone"){
+           // var stoneVar = "stone1"
+            resources.getIdentifier(droppedItem1 + 1, "drawable", packageName)
+        }*/
 
         if(droppedItem1 == "molotov"){
             droppedItem.setImageResource(
