@@ -193,15 +193,31 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
     var numberOfButtons = 0
 
     data class Zombie(val imageView: ImageView, val newId: Int)
+    data class Trap(val imageView: ImageView, val newId: Int)
     companion object {
         private val random = Random(System.nanoTime())
 
 
-        private var nextId = 1 //static counter for sequential id
+        private var nextId = 1 //counter for sequential id
+        private var nextId1 = 1 //counter for sequential id
+        private var num = 1
+
 
         fun createZombie(imageView: ImageView): Zombie {
             return Zombie(imageView, nextId++)
         }
+        fun createTrap(imageView: ImageView): Trap {
+
+            return Trap(imageView, nextId1++)
+            //todo THISSSSSSSSSSS
+        }
+   /*     fun createTrap(nextId1 : Int): Trap {
+            return Trap(imageView)
+            //todo THISSSSSSSSSSS
+        }*/
+
+
+
 
         private const val PERMISSION_REQUEST_CODE = 100
         const val PREFS_NAME = "StepCounterPrefs"
@@ -210,16 +226,19 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
         const val PREF_DAILY_STEPS = "dailySteps"
     }
 
+
+
+
     private var zombies: MutableList<ImageView> = mutableListOf()
 
     private val zombieMap: MutableMap<ImageView, Zombie> = mutableMapOf()
 
-    data class ZombieData(val newId: Int, var hp: Int)
+   /* data class ZombieData(val newId: Int, var hp: Int)
 
     fun returnId(imageView: ImageView): Int? {
         val zombie = zombieMap[imageView]
         return zombie?.newId // Use safe call to handle potential null
-    }
+    }*/
 
     private var experience = 0
 
@@ -307,6 +326,9 @@ class MainActivity2 : AppCompatActivity(), SharedPreferences.OnSharedPreferenceC
 
     var totalTrapNum = 0
     var tapCount = 0
+
+
+    private val trapImages = arrayListOf<ImageView>()
    // private final var TAG = "MainActivity2"
 
 
@@ -1188,6 +1210,27 @@ private fun updateShield() {
 
             val xtap = event.x
             val ytap = event.y
+
+
+
+
+            //todo potentially delay this animation to smoothen flow
+            for(trapNum2 in 1 .. totalTrapNum) {
+                var timesUsed = sharedPreferences.getInt(trapNum2.toString() + "timesUsed", 0)
+
+
+                Log.d("lily3", "the number of times trap number $trapNum2 has been used is $timesUsed")
+                if (timesUsed == 3) {
+                    Log.d("lily3", "removing a view" + trapImages[trapNum2])
+
+                    binding.parentLayout.removeView(trapImages.get(trapNum2))
+
+                }
+            }
+
+
+
+
             when (currentItem) {
 
 
@@ -1215,6 +1258,22 @@ private fun updateShield() {
 
                         sharedPreferences.edit().putInt("trapNum", totalTrapNum++).commit()
 
+
+                    var totalTrapNum1 = sharedPreferences.getInt("trapNum", 0)+1
+                    var trapInfo = createTrap(Trap)
+                    trapImages.add(trapInfo.imageView)
+                    Log.d("lily3", trapImages.toString())
+
+
+                    //Trap.setTag(trapInfo.imageView)
+
+                   /* for (i in 0 .. totalTrapNum1) {
+                        ArrayList <Object> trapInfo.imageView
+                    }
+           */
+
+                    //todo SET TAG!!!!!!!!!
+
                         Trap.background = null
                         Trap.visibility = View.INVISIBLE
 
@@ -1236,10 +1295,10 @@ private fun updateShield() {
                             //sharedpref list that contains trapcoord that gets updated everytime a trap is destroyed or set
 
                             sharedPreferences.edit().putInt("trapNum", trapNum).commit()
-                            Trap.postDelayed({
+
                                 settingUpTrap = false
 
-                            }, 1000)
+
 
                     }
 
@@ -2789,8 +2848,9 @@ private fun updateShield() {
 
     private fun recursiveFunction(j: Int, zombie: ImageView, width: Int, height: Int) {
         //todo
-
-
+if(j>1) {
+    Log.d("lily", "The zombie number is ${zombie.tag.toString()} the trap number being observed:  $j")
+}
 
        // while(j in 1 .. totalTrapNum) {
             // for(j in 1 .. totalTrapNum){
@@ -2799,47 +2859,70 @@ private fun updateShield() {
             //todo THIS
             var trapNumNumZomb = sharedPreferences.getInt(j.toString() + "Zombies", 0)
 
-            if (trapNumNumZomb < 3) {
 
 
-                //coord should be associated with the trap
-                val partX = sharedPreferences.getInt(j.toString() + "partX", 0)
-                val partY = sharedPreferences.getInt(j.toString() + "partY", 0)
 
 
-                val trapRect = Rect(partX, partY, partX + 250, partY + 250)
-                //todo adjust depending on trap size
+            //coord should be associated with the trap
+            val partX = sharedPreferences.getInt(j.toString() + "partX", 0)
+            val partY = sharedPreferences.getInt(j.toString() + "partY", 0)
 
 
-                //if the zombie interacts with a trap
-                if (trapRect.contains(width + 100, height + 100)) {
+            val trapRect = Rect(partX, partY, partX + 250, partY + 250)
+            //todo adjust depending on trap size
 
 
-                    //if zombie being animated has been set as trapped is false
-                    if (sharedPreferences.getBoolean(zombie.tag.toString() + "Trapped", false) == false) {
-                        //associate zombie with trap number
-                        sharedPreferences.edit().putBoolean(zombie.tag.toString() + j.toString() + "Trapped", true).commit()
+            //if the zombie interacts with a trap
+            if (trapRect.contains(width + 100, height + 100)) {
 
-                        //connect current trap with the new number of zombies caught in it
-                        sharedPreferences.edit().putInt(j.toString() + "Zombies", trapNumNumZomb + 1).commit()
 
-                        //add if trap does damage to zombie
+                //if zombie being animated has been set as trapped is false
+                if (sharedPreferences.getBoolean(zombie.tag.toString() + "Trapped", false) == false) {
+        /*
+                    sharedPreferences.edit().putBoolean(zombie.tag.toString() + "Trapped", true).commit()*/
 
+                    //associate zombie with trap
+                   // sharedPreferences.edit().putInt(zombie.tag.toString() + "whichTrap", j).commit()
+
+                    if (trapNumNumZomb < 3) {
                         //mark this zombie as trapped
-                        sharedPreferences.edit().putBoolean(zombie.tag.toString() + "Trapped", true).commit()
+
+                    sharedPreferences.edit().putBoolean(zombie.tag.toString() + "Trapped", true).commit()
+
+                        sharedPreferences.edit().putInt(zombie.tag.toString() + "trapNum", j-1).commit()
+
+                    //connect current trap with the new number of zombies caught in it
+                    //trapNumNumZomb
+                    sharedPreferences.edit().putInt(j.toString() + "Zombies", trapNumNumZomb + 1).commit()
+
+                    //add if trap does damage to zombie
 
 
-                        //todo flag zombie as a zombie thats stuck to a trap and when the last zombie
-                        // attached is removed erase the trap
-                    }
-                } else {
-                    //if the zombie does not interact with a trap it is marked as false
-                    sharedPreferences.edit().putBoolean(zombie.tag.toString() + "Trapped", false).commit()
+
+                        }
+
+                    //todo flag zombie as a zombie thats stuck to a trap and when the last zombie
+                    // attached is removed erase the trap
                 }
             } else {
+                //if the zombie does not interact with a trap it is marked as false
                 sharedPreferences.edit().putBoolean(zombie.tag.toString() + "Trapped", false).commit()
 
-            }
+                //check the next trap .. if there is a next trap
+                totalTrapNum = sharedPreferences.getInt("trapNum", j)
+                if(totalTrapNum > j) {
+                    recursiveFunction(j + 1, zombie, width, height)
+
+                }
+                else{
+                    return
+                }
+
+        }
+            /* else {
+                sharedPreferences.edit().putBoolean(zombie.tag.toString() + "Trapped", false).commit()
+
+            }*/
             /*      if(j<totalTrapNum) {
            //var width1 = sharedPreferences.getInt(zombie.tag.toString() + "width", width)
            // var height1 = sharedPreferences.getInt(zombie.tag.toString() + "height", height)
@@ -2854,15 +2937,12 @@ private fun updateShield() {
             else if (sharedPreferences.getBoolean(zombie.tag.toString() + "Trapped", false) == true) {
                 return
             }
-            else if (j < totalTrapNum && sharedPreferences.getInt(zombie.tag.toString() + "width", 0) == width) {
-                recursiveFunction(j+1, zombie, width, height)
 
-            }
         if (j > totalTrapNum){
             return
         }
 
-       // }
+
 
     }
 
@@ -3132,28 +3212,46 @@ private fun updateShield() {
     }
 
 
-    private fun ezCheese(closestZombie1: ImageView) {
+    private fun ezCheese(zombie: ImageView) {
         //if there is a trap and the trap is full of zombies then remove the trap
 
-        //todo
-       // sharedPreferences.edit().putBoolean(zombie + "Trapped",true)
+        //todo Associate trap with id and image view then remove trap
+        // sharedPreferences.edit().putBoolean(zombie + "Trapped",true)
 
 
         //get zombies trap number
-        var trapNum2 = sharedPreferences.getInt(closestZombie1.tag.toString() + "trapNum", 0)
-        if (sharedPreferences.getBoolean(closestZombie1.tag.toString() + "Trapped", true)){
-            //get number of zombies in trap
-            var trapNumNumZomb = sharedPreferences.getInt(closestZombie1.tag.toString() + trapNum2.toString() + "Zombies", 0)
-            if(trapNumNumZomb >= 3){
-                binding.parentLayout.removeView(closestZombie1)
+        var trapNum2 = sharedPreferences.getInt(zombie.tag.toString() + "trapNum", 0)
 
+
+        var timesUsed = sharedPreferences.getInt(trapNum2.toString() + "timesUsed", 0)
+        if (sharedPreferences.getBoolean(zombie.tag.toString() + "Trapped", false) == true) {
+            timesUsed++
+
+            Log.d("lily3", "the number of times trap number $trapNum2 has been used is $timesUsed")
+            //var findTrap = 0
+            //trapNum2
+            /*      for( imageView in trapImages){
+            findTrap++
+            if(findTrap == trapNum2){*/
+            if (timesUsed == 3) {
+
+                Log.d("lily3", "removing a view" + trapImages[trapNum2])
+                // this works too Log.d("lily3", "removing a view" + trapImages.get(0))
+                //binding.parentLayout.findViewById<ImageView>(trapImages[trapNum2].id).visibility = View.INVISIBLE
+//                    trapImages[trapNum2]).visibility = View.INVISIBLE
+                binding.parentLayout.removeView(trapImages.get(trapNum2))
+                //render trap useless code
+                //say trap is off in SP then read that from animation pov
             }
 
+            sharedPreferences.edit().putInt(trapNum2.toString() + "timesUsed", timesUsed).commit()
+            //}
 
-
+            //}
+        }
     }
-    }
 
+//todo check zombie flying away after bat,machete when it should fall over
 
     private fun swipeAnimation(item1: ImageView) {
         //var width = Random.nextInt(0, binding.parentLayout.width-200)
