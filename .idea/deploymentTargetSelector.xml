@@ -4,10 +4,10 @@
     <selectionStates>
       <SelectionState runConfigName="ZWSharedPrefrences">
         <option name="selectionMode" value="DROPDOWN" />
-        <DropdownSelection timestamp="2025-09-11T05:14:26.128680300Z">
+        <DropdownSelection timestamp="2026-03-10T19:15:44.006087800Z">
           <Target type="DEFAULT_BOOT">
             <handle>
-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\Red\.android\avd\Pixel_5_API_29.avd" />
+              <DeviceId pluginId="PhysicalDevice" identifier="serial=R5CW40KDL1Y" />
             </handle>
           </Target>
         </DropdownSelection>

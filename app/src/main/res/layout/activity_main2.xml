@@ -8,18 +8,64 @@
     android:background="@drawable/zombiebg1"
     >
 
+
+
+
     <TextView
-        android:id="@+id/stepsTextView"
+        android:id="@+id/uses"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingLeft="100px"
-        android:paddingRight="100px"
-        android:text="Steps today: 0 \n Please make sure your fitness app (Samsung Health or Google fit) has write steps permission allowed and is synchronizing with Health Connect App"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:gravity="center"
+        android:text="Uses: 0"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/inAppSteps"
+
+
+
+        />
+
+    <TextView
+        android:id="@+id/inAppSteps"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="In App Steps: "
+        app:layout_constraintTop_toBottomOf="@id/health"
+        app:layout_constraintStart_toStartOf="parent"
+
+        />
+
+    <TextView
+        android:id="@+id/health"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Health: 9"
+        app:layout_constraintStart_toStartOf="parent"
+
         app:layout_constraintTop_toTopOf="parent" />
+
+
+    <TextView
+        android:id="@+id/score"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Score: 0"
+      app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/uses"
+        />
+
+
+
+    <Button
+        android:id="@+id/inAppStepsPermission"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="invisible"
+        android:text="Grant In App Step Counter permissions"
+        app:layout_constraintBottom_toTopOf="@id/dismissButton"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/inAppSteps" />
+
+
 
 
     <Button
@@ -34,60 +80,76 @@
         app:layout_constraintTop_toBottomOf="@id/stepsTextView" />
 
 
-    <TextView
-        android:id="@+id/inAppSteps"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="In App Steps: "
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/stepsTextView" />
-
-
     <Button
-        android:id="@+id/inAppStepsPermission"
+        android:id="@+id/appLogCat"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:text="Submit a bug report"
         android:visibility="invisible"
-        android:text="Grant In App Step Counter permissions"
-        app:layout_constraintBottom_toBottomOf="@+id/parentLayout"
+        app:layout_constraintBottom_toTopOf="@id/dismissButton"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/inAppSteps" />
+        app:layout_constraintTop_toBottomOf="@id/healthConnectPermissions"
 
+        />
 
     <Button
         android:id="@+id/dismissButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Dismiss Permission Requests"
-        app:layout_constraintBottom_toBottomOf="@+id/parentLayout"
-
+        app:layout_constraintBottom_toTopOf="@id/messageToggle"
         android:visibility="invisible"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/inAppStepsPermission" />
+
+
+
+    <TextView
+        android:id="@+id/stepsTextView"
+        android:visibility="invisible"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingLeft="100px"
+        android:paddingRight="100px"
+        android:text="Enable your fitness app: Samsung Health or Google fit. For Samsung Health go to in app settings, connected apps and services, Health Connect then go to enable access, and write steps permission to synchronize with Health Connect App."
+        app:layout_constraintEnd_toEndOf="parent"
+        android:gravity="center"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/dismissButton"
+        app:layout_constraintBottom_toTopOf="@id/messageToggle"
+        />
+
+
+    <CheckBox
+        android:id="@+id/messageToggle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="60px"
+
+        android:checked="true"
+        android:text="Show start sequence"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toBottomOf="@id/parentLayout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/dismissButton" />
+
+
+
 
     <TextView
         android:id="@+id/followers"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="No zombies here"
-        app:layout_constraintBottom_toTopOf="@+id/stepsTextView"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
 
-    <TextView
-        android:id="@+id/health"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Health: 9"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintBottom_toTopOf="@id/scrollView"
-        />
+
 
 
 
@@ -99,6 +161,10 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
+
+
+
+
 
 
         <Button
@@ -174,23 +240,47 @@
 
     </RelativeLayout>
 
-    <TextView
-        android:id="@+id/experience"
+
+
+        <ImageButton
+            android:id="@+id/zPack"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:background="@android:color/transparent"
+            android:scaleType="fitCenter"
+            android:layout_marginTop="25dp"
+            android:layout_marginEnd="15dp"
+
+
+
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:srcCompat="@drawable/zpack" />
+
+
+    <ImageView
+        android:id="@+id/start"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Experience: 0"
+
+        android:visibility="invisible"
+        android:background="@color/black"
+        app:layout_constraintBottom_toBottomOf="@+id/scrollView"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-
-    <TextView
-        android:id="@+id/uses"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Uses: 0"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        />
+        app:srcCompat="@drawable/start" />
+
+
+   <!-- <ImageView
+        android:id="@+id/theTable"
+        android:layout_width="200px"
+        android:layout_height="200px"
+        app:srcCompat="@drawable/trap"
+        android:visibility="visible"
+        tools:ignore="MissingConstraints" />-->
+
+
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>

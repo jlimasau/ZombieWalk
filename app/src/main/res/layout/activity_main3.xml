@@ -5,6 +5,36 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity3">
+    tools:context=".MainActivity3"
+    android:background="@color/black"
+    >
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="338dp"
+        android:layout_height="466dp"
+        android:fontFamily="@font/bangers"
+        android:text="I am requesting Health Connect read steps permission to access your StepsCadence/Steps in order to promote \n good health.
+\nThe Game is fictitious and any similarities are purely coincidental.
+If the permission is denied \n
+the game is over.\n
+Tap on the Zpack to play"
+        android:textAlignment="center"
+        android:textColor="@color/white"
+        android:textSize="34sp"
+        app:layout_constraintBottom_toTopOf="@+id/zPack"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/zPack"
+        android:layout_width="156dp"
+        android:layout_height="179dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/textView"
+        app:srcCompat="@drawable/zpack" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
